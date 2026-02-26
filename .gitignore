@@ -1,0 +1,333 @@
+# ============================================================================
+# SOC Lab Docker – .gitignore
+# Excludes sensitive data, build artifacts, and environment-specific files
+# ============================================================================
+
+# ============================================================================
+# Environment & Configuration
+# ============================================================================
+
+# Environment variables (never commit .env with real credentials)
+.env
+.env.local
+.env.*.local
+
+# IDE-specific settings
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+.project
+.pydevproject
+.settings/
+
+# ============================================================================
+# Docker & Container Data
+# ============================================================================
+
+# Docker volumes and mounted data
+data/
+volumes/
+docker-volumes/
+
+# Docker build cache and temporary files
+.docker/
+.dockerignore
+
+# Container logs
+logs/
+*.log
+logs/**/*
+
+# Temporary Docker files
+.container-state
+
+# ============================================================================
+# Python
+# ============================================================================
+
+# Python virtual environments
+venv/
+env/
+ENV/
+.venv/
+.pyenv/
+pipenv-lock.json
+
+# Python build artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+click-params.json
+pip-wheel-metadata/
+share/python-wheels/
+
+# Python testing
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.hypothesis/
+
+# Python packaging
+*.egg-info/
+*.egg
+MANIFEST
+
+# Poetry (if used)
+poetry.lock
+dist/
+
+# ============================================================================
+# Node.js (if used for dashboard or tooling)
+# ============================================================================
+
+node_modules/
+npm-debug.log
+yarn-error.log
+package-lock.json
+yarn.lock
+.npm/
+
+# ============================================================================
+# Terraform & Infrastructure as Code
+# ============================================================================
+
+# Terraform files
+*.tfstate
+*.tfstate.*
+.tfvars
+.terraform/
+.terraform.lock.hcl
+crash.log
+override.tf
+override.tf.json
+
+# ============================================================================
+# Bash & Shell Scripts
+# ============================================================================
+
+# Temporary shell files
+*.tmp
+*.bak
+
+# ============================================================================
+# Credentials & Secrets
+# ============================================================================
+
+# SSH keys
+*.pem
+*.ppk
+*.key
+id_rsa
+id_rsa.pub
+
+# TLS certificates
+*.crt
+*.cer
+*.cert
+*.pem
+*.p12
+certs/
+certificates/
+
+# API keys and tokens (if accidentally committed)
+secret*.txt
+*.secret
+credentials.json
+.aws/credentials
+.aws/config
+
+# ============================================================================
+# Database & Persistence
+# ============================================================================
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+*.db-journal
+data.db
+
+# Elasticsearch data
+elasticsearch-data/
+indices/
+
+# Backup files
+*.backup
+*.bak
+*.tar.gz
+*.zip
+
+# ============================================================================
+# OS-Specific Files
+# ============================================================================
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Windows
+Thumbs.db
+Desktop.ini
+*.lnk
+
+# Linux
+.cache/
+.local/
+
+# ============================================================================
+# Generated Files & Artifacts
+# ============================================================================
+
+# Generated API documentation
+generated/
+/docs/_build/
+site/
+
+# Test outputs
+test-results/
+test-reports/
+*.xml
+*.junit
+
+# Temporary files
+*.tmp
+*.temp
+tmp/
+
+# ============================================================================
+# IDE Editor Config
+# ============================================================================
+
+# Visual Studio Code
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# IntelliJ / PyCharm
+.idea/*
+*.iml
+*.iws
+*.ipr
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Vim
+[._]*.s[a-v][a-z]
+[._]*.sw[a-p]
+[._]s[a-rt][a-z]
+Session.vim
+.netrwhist
+
+# ============================================================================
+# Build & Compilation
+# ============================================================================
+
+# Compiled binaries
+*.exe
+*.dll
+*.so
+*.dylib
+*.a
+*.o
+
+# Build directories
+build/
+dist/
+target/
+bin/
+obj/
+
+# ============================================================================
+# Internal Development Files
+# ============================================================================
+
+# Internal roadmap and development tracking (not for public repo)
+_INTERNAL_DEV_ROADMAP.md
+_TODO.md
+.internal/
+.dev/
+INTERNAL_*.md
+
+# ============================================================================
+# Temporary Non-Production Data
+# ============================================================================
+
+# Mock data files (comment out if you want to track sample data)
+mock-data/
+sample-logs/
+test-data/
+
+# Visualization exports (often large)
+exports/
+*.html
+*.pdf
+
+# ============================================================================
+# CI/CD & DevOps
+# ============================================================================
+
+# GitHub Actions
+.github/workflows/*.yml
+.github/workflows/*.yaml
+
+# Coverage reports
+.coverage
+htmlcov/
+
+# Build logs
+build.log
+
+# ============================================================================
+# Comments
+# ============================================================================
+
+# These patterns exclude:
+# - Environment variables and credentials
+# - Docker volumes and persistent data (regenerable from scripts)
+# - IDE configuration (user-specific)
+# - Build artifacts and compiled code
+# - OS-specific and temporary files
+#
+# Safe to track:
+# - Source code (generators, scripts, queries)
+# - Documentation
+# - Configuration templates (.env.example)
+# - Docker Compose definitions
+# - Detection queries and dashboard definitions
+# - Tests and test fixtures
+
+# ============================================================================
+# EXCEPTIONS (whitelist)
+# ============================================================================
+
+# If you need to track specific files that would normally be ignored,
+# use the negation operator (!). For example:
+
+# !logs/example.log
+# !mock-data/sample-events.json
+# !data/dashboards/template.json
