@@ -23,20 +23,20 @@ This directory contains Bash and Python scripts that simulate common attack patt
 
 ## Capabilities
 
-✅ **Multi-step attack chains**
+**Multi-step attack chains**
 
 - Coordinated sequences of events (reconnaissance → exploitation → persistence)
 - Realistic timing and intervals between steps
 - Event correlation IDs for tracking attack chains
 
-✅ **Configurable parameters**
+**Configurable parameters**
 
 - Target hosts and users
 - Attack duration and intensity
 - Success/failure ratio
 - Detection avoidance techniques (optional, for advanced learning)
 
-✅ **Artifact generation**
+**Artifact generation**
 
 - Network connections (logs, DNS)
 - Process execution chains
@@ -44,7 +44,7 @@ This directory contains Bash and Python scripts that simulate common attack patt
 - Registry changes
 - Auth events
 
-✅ **Integration with event pipeline**
+**Integration with event pipeline**
 
 - Events written to log files
 - Automatic pickup by log aggregator
@@ -106,7 +106,7 @@ Scripts assume:
 
 ## Safety & Ethics
 
-⚠️ **Important Notes:**
+**Important Notes:**
 
 - These scripts generate **synthetic events only** – they do NOT execute actual attacks
 - Use **only within the SOC Lab environment**

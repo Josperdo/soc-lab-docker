@@ -25,25 +25,25 @@ This directory contains tooling for generating realistic, configurable security 
 
 ## Capabilities
 
-✅ **Configurable event generation**
+**Configurable event generation**
 
 - Event volume (events per second)
 - Event type selection
 - Time distribution (burst vs. normal)
 
-✅ **Realistic event structures**
+**Realistic event structures**
 
 - Timestamps and correlation IDs
 - Synthetic user and host identities
 - Realistic field values (source IPs, user agents, domains)
 
-✅ **Extensible template system**
+**Extensible template system**
 
 - Add new event types without code changes
 - YAML/JSON template definitions
 - Macro substitution (${USER}, ${HOST}, etc.)
 
-✅ **Output formats**
+**Output formats**
 
 - JSON (for Elasticsearch, data lakes)
 - Syslog (for log aggregators)

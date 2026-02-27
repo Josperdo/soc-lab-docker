@@ -12,7 +12,7 @@ The features described here represent the direction of development and community
 
 ## Core Capabilities (Current)
 
-### ✅ Local Docker Stack
+### Local Docker Stack
 
 - Single-command deployment via Docker Compose
 - Elasticsearch-backed search and analytics
@@ -20,7 +20,7 @@ The features described here represent the direction of development and community
 - Configurable via environment variables
 - Works offline, no cloud dependencies
 
-### ✅ Realistic Event Generation
+### Realistic Event Generation
 
 - Mock log generator with multiple event types:
   - Authentication events (success, failure, privilege escalation)
@@ -32,7 +32,7 @@ The features described here represent the direction of development and community
 - Realistic field values, timestamps, and correlations
 - Extensible template system for custom event types
 
-### ✅ Attack Simulation Scripts
+### Attack Simulation Scripts
 
 - Pre-built attack scenario scripts (bash/python):
   - Brute force authentication attacks
@@ -43,7 +43,7 @@ The features described here represent the direction of development and community
 - Educational documentation explaining attack mechanics
 - Integration with detection queries for immediate feedback
 
-### ✅ Detection Query Examples
+### Detection Query Examples
 
 - Multi-format query templates:
   - **SPL** (Splunk Query Language)
@@ -56,7 +56,7 @@ The features described here represent the direction of development and community
   - MITRE ATT&CK technique mappings
 - Focused on teaching detection principles, not just copy/paste
 
-### ✅ Sample Dashboards
+### Sample Dashboards
 
 - Pre-built dashboard templates:
   - Event overview (volume, types, sources)
@@ -66,7 +66,7 @@ The features described here represent the direction of development and community
 - Exportable JSON format for sharing and customization
 - Integration guides for multiple visualization platforms
 
-### ✅ Comprehensive Documentation
+### Comprehensive Documentation
 
 - **SETUP.md:** Installation, configuration, and troubleshooting
 - **ARCHITECTURE.md:** System design, component descriptions, data flow

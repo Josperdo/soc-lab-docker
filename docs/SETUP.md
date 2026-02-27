@@ -130,7 +130,7 @@ curl -X GET "localhost:9200/soc-lab-*/_count"
 # {"count":1234,"_shards":{"total":1,"successful":1,"skipped":0,"failed":0}}
 ```
 
-**✅ Lab is running! Proceed to [Verification & Troubleshooting](#verification--troubleshooting).**
+**Lab is running. Proceed to [Verification & Troubleshooting](#verification--troubleshooting).**
 
 ---
 
@@ -171,7 +171,7 @@ EVENT_TYPES=authentication,web_traffic,process_execution,network
 # ============================================================================
 
 ADMIN_USERNAME=admin
-ADMIN_PASSWORD=changeme123      # ⚠️ CHANGE THIS!
+ADMIN_PASSWORD=changeme123      # CHANGE THIS!
 WEB_UI_PORT=5601               # Use 8080 if 5601 is already in use
 ```
 
@@ -545,7 +545,7 @@ To install Ubuntu WSL if not present: `wsl --install -d Ubuntu` in PowerShell (r
 
 ## Security & Hardening
 
-⚠️ **Important:** The default configuration is development-only and insecure.
+**Important:** The default configuration is development-only and insecure.
 
 ### Critical: Change Default Password
 
@@ -723,10 +723,10 @@ docker run --rm \
 
 ## Next Steps
 
-- ✅ [Simulate your first attack](../scripts/README.md)
-- ✅ [Run a detection query](../detections/README.md)
-- ✅ [View dashboards](../dashboards/README.md)
-- ✅ [Learn architecture details](./ARCHITECTURE.md)
+- [Simulate your first attack](../scripts/README.md)
+- [Run a detection query](../detections/README.md)
+- [View dashboards](../dashboards/README.md)
+- [Learn architecture details](./ARCHITECTURE.md)
 
 ---
 

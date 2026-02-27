@@ -270,37 +270,37 @@ Index: logs-2026.02.26
 
 ### 1. **Why Elasticsearch?**
 
-- ✅ Powerful full-text search for event discovery
-- ✅ Native JSON support (no schema enforcement)
-- ✅ Mature tooling (Kibana) for visualization
-- ✅ Horizontal scaling for large datasets
-- ✅ Industry-standard in SOC environments
-- ⚠️ Trade-off: Higher memory overhead than some alternatives
+- Powerful full-text search for event discovery
+- Native JSON support (no schema enforcement)
+- Mature tooling (Kibana) for visualization
+- Horizontal scaling for large datasets
+- Industry-standard in SOC environments
+- Trade-off: Higher memory overhead than some alternatives
 
 **Alternatives considered:** ClickHouse, Loki, Splunk (commercial)
 
 ### 2. **Why Docker Compose (not Kubernetes)?**
 
-- ✅ Simple, single-command deployment
-- ✅ Perfect for learning and local development
-- ✅ No container orchestration complexity
-- ✅ Minimal system requirements
-- 📅 Kubernetes support planned for Phase 5 (cloud deployment)
+- Simple, single-command deployment
+- Perfect for learning and local development
+- No container orchestration complexity
+- Minimal system requirements
+- Kubernetes support planned for Phase 5 (cloud deployment)
 
 ### 3. **Why Filebeat (not Logstash)?**
 
-- ✅ Lightweight (minimal CPU/memory)
-- ✅ Simple configuration for log file monitoring
-- ✅ Good field parsing for common log formats
-- 📅 Logstash support could be added later for complex transformations
+- Lightweight (minimal CPU/memory)
+- Simple configuration for log file monitoring
+- Good field parsing for common log formats
+- Logstash support could be added later for complex transformations
 
 ### 4. **Mock Generation over Production Logs**
 
-- ✅ Reproducible and forkable
-- ✅ No privacy/compliance concerns
-- ✅ Customizable for learning different scenarios
-- ✅ No need for real data exports
-- ⚠️ May not match 100% of production event structure
+- Reproducible and forkable
+- No privacy/compliance concerns
+- Customizable for learning different scenarios
+- No need for real data exports
+- May not match 100% of production event structure
 
 ---
 
@@ -363,7 +363,7 @@ Index: logs-2026.02.26
 
 ## Security Considerations
 
-⚠️ **Important Notes:**
+**Important Notes:**
 
 1. **Development-only:** This stack is NOT production-hardened
 2. **Default credentials:** Change admin password immediately

@@ -76,24 +76,24 @@ dashboards/
 
 ## Dashboard Features
 
-✅ **Interactive Dashboards**
+**Interactive Dashboards**
 
 - Click through to underlying data
 - Filter by time range, user, host, etc.
 - Drill-down from summary to detail
 
-✅ **Real-time Updates**
+**Real-time Updates**
 
 - Auto-refresh configured (5-second, 30-second options)
 - Suitable for SOC wall displays
 
-✅ **Exportable**
+**Exportable**
 
 - Export as JSON (for version control and sharing)
 - Export visualizations as images
 - Share dashboard links with team
 
-✅ **Template Customization**
+**Template Customization**
 
 - Available as JSON files for easy modification
 - Re-usable panels for other dashboards

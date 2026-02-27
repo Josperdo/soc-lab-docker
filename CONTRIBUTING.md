@@ -309,7 +309,7 @@ Contributors are recognized in:
 - GitHub contributors page
 - Release notes for each version
 
-Thank you for making SOC Lab Docker better! 🛡️
+Thank you for making SOC Lab Docker better.
 
 ---
 

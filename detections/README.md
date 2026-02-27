@@ -51,13 +51,13 @@ detections/
 
 ## Capabilities
 
-✅ **Multi-format query examples**
+**Multi-format query examples**
 
 - **SPL** (Splunk Query Language)
 - **KQL** (Kibana KQL filter syntax + EQL sequence detection + ES|QL aggregation)
 - **Azure Sentinel KQL** (where applicable)
 
-✅ **Complete documentation**
+**Complete documentation**
 
 - Purpose and detection logic
 - Field requirements and assumptions
@@ -65,13 +65,13 @@ detections/
 - Expected false-positive rates
 - MITRE ATT&CK mapping
 
-✅ **Testability**
+**Testability**
 
 - Each query is runnable against the mock lab data
 - Validation notes (what events should trigger)
 - Known limitations and edge cases
 
-✅ **Best practices**
+**Best practices**
 
 - Baseline methodology
 - Avoiding false positives
