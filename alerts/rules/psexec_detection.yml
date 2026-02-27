@@ -1,0 +1,43 @@
+# ============================================================================
+# Alert Rule: PsExec Lateral Movement
+# ============================================================================
+
+name: psexec_lateral_movement
+enabled: true
+description: PsExec service binary detected — lateral movement via SMB/admin share
+
+query:
+  index: "soc-lab-*"
+  filter:
+    - term:
+        event.category: process
+    - terms:
+        process.name:
+          - PSEXESVC.exe
+  any_of:
+    - term:
+        process.name: PSEXESVC.exe
+    - term:
+        process.parent.name: PSEXESVC.exe
+
+aggregation:
+  group_by: host.name
+  metric: count
+  threshold: 1
+  timeframe: 5m
+
+alert:
+  severity: high
+  mitre:
+    - T1021.002
+    - T1570
+    - T1543.003
+  runbook: docs/ALERTING.md#runbook-psexec-lateral-movement
+  message: |
+    PsExec lateral movement detected on {host.name}.
+    Process: {process.name} spawned by {process.parent.name}.
+    User: {user.name}
+
+notify:
+  - slack
+  - webhook

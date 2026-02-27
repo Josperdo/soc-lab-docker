@@ -1,0 +1,176 @@
+title: C2 Beaconing — Regular-Interval Connections
+id: 4b8f2d19-6e3a-4c7b-a5d8-2c9f1b0e4a63
+status: experimental
+description: |
+  Detects potential C2 beaconing by identifying a single non-browser process
+  making repeated outbound connections to the same external IP at regular
+  intervals. Beaconing typically produces a consistent connection count with
+  uniform packet sizes over time.
+references:
+  - https://attack.mitre.org/techniques/T1071/001/
+  - https://attack.mitre.org/techniques/T1029/
+author: SOC Lab Docker
+date: 2026-02-27
+tags:
+  - attack.command_and_control
+  - attack.t1071.001
+  - attack.t1029
+logsource:
+  category: network_connection
+detection:
+  selection:
+    event.category: network
+    network.transport: tcp
+    event.outcome: success
+  filter_browsers:
+    process.name:
+      - chrome.exe
+      - firefox.exe
+      - msedge.exe
+      - iexplore.exe
+      - safari
+  filter_internal:
+    destination.ip|cidr:
+      - '10.0.0.0/8'
+      - '172.16.0.0/12'
+      - '192.168.0.0/16'
+  condition: selection and not filter_browsers and not filter_internal | count() by destination.ip, process.name > 5
+  timeframe: 15m
+falsepositives:
+  - Telemetry and update-check clients that poll at regular intervals
+  - NTP clients, monitoring agents, heartbeat services
+  - VPN keepalive connections
+fields:
+  - source.ip
+  - destination.ip
+  - destination.port
+  - process.name
+  - host.name
+level: medium
+
+---
+# ─────────────────────────────────────────────────────────────────────────────
+# Variant: Suspicious Office Document Spawning PowerShell
+# Covers the initial access phase of C2 beacon simulation (T1566.001)
+# ─────────────────────────────────────────────────────────────────────────────
+title: Office Application Spawning PowerShell or cmd.exe
+id: 8c1e4f73-5a9b-4d2e-b3c7-6f0a2d8c1e94
+status: stable
+description: |
+  Detects Microsoft Office applications (Word, Excel, Outlook) spawning
+  PowerShell or cmd.exe — a primary indicator of macro-based initial access
+  via spearphishing attachments. Legitimate Office documents rarely need to
+  spawn shells directly.
+references:
+  - https://attack.mitre.org/techniques/T1566/001/
+  - https://attack.mitre.org/techniques/T1059/001/
+author: SOC Lab Docker
+date: 2026-02-27
+tags:
+  - attack.initial_access
+  - attack.execution
+  - attack.t1566.001
+  - attack.t1059.001
+  - attack.t1059.003
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection:
+    process.parent.name:
+      - winword.exe
+      - excel.exe
+      - outlook.exe
+      - powerpnt.exe
+      - mspub.exe
+      - visio.exe
+    process.name:
+      - cmd.exe
+      - powershell.exe
+      - pwsh.exe
+      - wscript.exe
+      - cscript.exe
+      - mshta.exe
+  condition: selection
+falsepositives:
+  - Macro-based business automation tools in controlled environments
+  - Development/testing workflows involving Office VBA
+fields:
+  - process.parent.name
+  - process.name
+  - process.command_line
+  - user.name
+  - host.name
+level: high
+
+---
+# ─────────────────────────────────────────────────────────────────────────────
+# Variant: PowerShell Encoded Command (Download Cradle)
+# Covers the download cradle step of C2 implant delivery.
+# ─────────────────────────────────────────────────────────────────────────────
+title: PowerShell Executing Encoded Command or Download Cradle
+id: 3f7a2e84-9c5b-4d1f-a8e3-5b0c4d9f2a71
+status: stable
+description: |
+  Detects PowerShell invoked with the -EncodedCommand flag (encoded payload) or
+  commands referencing common download cradle patterns (Net.WebClient,
+  DownloadString, IEX). These patterns are extensively used by C2 implants and
+  initial access payloads to execute code in memory without writing to disk.
+references:
+  - https://attack.mitre.org/techniques/T1059/001/
+  - https://attack.mitre.org/techniques/T1140/
+author: SOC Lab Docker
+date: 2026-02-27
+tags:
+  - attack.execution
+  - attack.defense_evasion
+  - attack.t1059.001
+  - attack.t1140
+  - attack.t1027
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_encoded:
+    process.name:
+      - powershell.exe
+      - pwsh.exe
+    process.command_line|contains:
+      - '-EncodedCommand'
+      - '-enc '
+      - '-e '
+  selection_cradle:
+    process.name:
+      - powershell.exe
+      - pwsh.exe
+    process.command_line|contains:
+      - 'Net.WebClient'
+      - 'DownloadString'
+      - 'DownloadFile'
+      - 'IEX'
+      - 'Invoke-Expression'
+      - 'WebRequest'
+      - 'curl '
+      - 'wget '
+  selection_hidden:
+    process.name:
+      - powershell.exe
+      - pwsh.exe
+    process.command_line|contains:
+      - '-WindowStyle Hidden'
+      - '-W Hidden'
+      - '-NonInteractive'
+      - '-ExecutionPolicy Bypass'
+      - '-EP Bypass'
+  condition: selection_encoded or selection_cradle or (selection_hidden and 1 of selection_*)
+falsepositives:
+  - Legitimate PowerShell automation scripts using encoded commands for special
+    character handling or cross-version compatibility
+  - System management tools (SCCM, Intune) deploying PowerShell payloads
+fields:
+  - process.name
+  - process.command_line
+  - process.parent.name
+  - user.name
+  - host.name
+level: high

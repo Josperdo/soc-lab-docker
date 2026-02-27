@@ -1,0 +1,152 @@
+title: Suspicious Scheduled Task Creation
+id: 3a7e2b41-9d5c-4f8a-c1b6-8e4d0a7f2c93
+status: stable
+description: |
+  Detects schtasks.exe and at.exe invocations with creation flags that
+  establish new scheduled tasks. Alerts when the task is created by a
+  suspicious parent process (cmd.exe, powershell.exe, wscript.exe) or
+  when the task action contains commonly abused Living Off the Land Binaries.
+references:
+  - https://attack.mitre.org/techniques/T1053/005/
+  - https://attack.mitre.org/techniques/T1053/003/
+author: SOC Lab Docker
+date: 2026-02-27
+tags:
+  - attack.persistence
+  - attack.execution
+  - attack.t1053.005
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_create:
+    process.name:
+      - schtasks.exe
+      - at.exe
+    process.command_line|contains:
+      - '/create'
+      - '/sc'
+      - '/tr'
+  filter_legitimate_parents:
+    process.parent.name:
+      - msiexec.exe
+      - setup.exe
+      - install.exe
+      - WindowsInstaller.exe
+  condition: selection_create and not filter_legitimate_parents
+falsepositives:
+  - Legitimate software installation creating scheduled tasks for updates
+  - IT automation tools (Ansible, Salt, Puppet) managing tasks remotely
+  - Application schedulers (backup software, AV updates)
+fields:
+  - process.name
+  - process.command_line
+  - process.parent.name
+  - user.name
+  - host.name
+level: medium
+
+---
+# ─────────────────────────────────────────────────────────────────────────────
+# Variant: Scheduled Task with Suspicious Command Payload
+# High risk when the task action references LOLBins or encoded commands.
+# ─────────────────────────────────────────────────────────────────────────────
+title: Scheduled Task with LOLBin or Encoded Command Payload
+id: 5c9f3a17-8b2e-4d6c-a4f1-2e7b0c5d9a38
+status: stable
+description: |
+  Detects scheduled tasks created with action commands that reference
+  Living Off the Land Binaries (LOLBins) or encoding flags commonly used
+  to obfuscate malicious payloads. These patterns indicate attackers
+  abusing native Windows utilities for persistence.
+references:
+  - https://attack.mitre.org/techniques/T1053/005/
+  - https://attack.mitre.org/techniques/T1059/001/
+  - https://lolbas-project.github.io/
+author: SOC Lab Docker
+date: 2026-02-27
+tags:
+  - attack.persistence
+  - attack.execution
+  - attack.defense_evasion
+  - attack.t1053.005
+  - attack.t1059.001
+  - attack.t1027
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection:
+    process.name: schtasks.exe
+    process.command_line|contains:
+      - 'powershell'
+      - '-EncodedCommand'
+      - '-enc '
+      - 'cmd /c'
+      - 'certutil'
+      - 'mshta'
+      - 'rundll32'
+      - 'wscript'
+      - 'cscript'
+      - 'regsvr32'
+      - 'bitsadmin'
+      - 'ProgramData'
+      - 'AppData\Local\Temp'
+  condition: selection
+falsepositives:
+  - Legitimate scheduled tasks that invoke PowerShell for system management
+  - Known software products that create PowerShell-based scheduled tasks
+fields:
+  - process.name
+  - process.command_line
+  - process.parent.name
+  - user.name
+  - host.name
+level: high
+
+---
+# ─────────────────────────────────────────────────────────────────────────────
+# Variant: Scheduled Task in Suspicious Path
+# Tasks hidden under Microsoft\Windows\ mimicking legitimate system tasks
+# ─────────────────────────────────────────────────────────────────────────────
+title: Scheduled Task Created in Suspicious Path
+id: 8e2a5b74-3c7f-4d1e-b6a9-4f0c2e8b5d13
+status: experimental
+description: |
+  Detects scheduled tasks created with names that mimic legitimate Windows
+  system tasks (e.g., under \Microsoft\Windows\UpdateOrchestrator\) but
+  whose binary paths point to non-system directories like ProgramData or
+  AppData, indicating potential attacker-created masquerading tasks.
+references:
+  - https://attack.mitre.org/techniques/T1053/005/
+  - https://attack.mitre.org/techniques/T1036/004/
+author: SOC Lab Docker
+date: 2026-02-27
+tags:
+  - attack.persistence
+  - attack.defense_evasion
+  - attack.t1053.005
+  - attack.t1036.004
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection:
+    process.name: schtasks.exe
+    process.command_line|contains:
+      - '\Microsoft\Windows\'
+  filter_legit_binary_paths:
+    process.command_line|contains:
+      - 'C:\Windows\System32'
+      - 'C:\Windows\SysWOW64'
+      - 'C:\Program Files'
+      - 'C:\Program Files (x86)'
+  condition: selection and not filter_legit_binary_paths
+falsepositives:
+  - Vendor software creating tasks under Microsoft\Windows\ namespace (rare)
+fields:
+  - process.name
+  - process.command_line
+  - user.name
+  - host.name
+level: high

@@ -1,0 +1,174 @@
+title: Unexpected SYSTEM-Integrity Process
+id: 9f3b6d52-4c1a-4e7b-b8d5-3a2c9f6e0b14
+status: stable
+description: |
+  Detects processes running at Windows SYSTEM integrity level spawned by a
+  parent process that is not a known legitimate system service. Legitimate
+  SYSTEM-spawning parents include services.exe, winlogon.exe, and lsass.exe.
+  Processes like cmd.exe or powershell.exe at SYSTEM integrity from unexpected
+  parents are strong indicators of privilege escalation.
+references:
+  - https://attack.mitre.org/techniques/T1068/
+  - https://attack.mitre.org/techniques/T1134/
+author: SOC Lab Docker
+date: 2026-02-27
+tags:
+  - attack.privilege_escalation
+  - attack.t1068
+  - attack.t1134
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection:
+    process.integrity_level: System
+  filter_legitimate_parents:
+    process.parent.name:
+      - services.exe
+      - winlogon.exe
+      - lsass.exe
+      - wininit.exe
+      - System
+  condition: selection and not filter_legitimate_parents
+falsepositives:
+  - Windows Update components spawning helper processes at SYSTEM level
+  - Third-party security software running at SYSTEM integrity
+  - Known system administration tools — build an allowed list over time
+fields:
+  - process.name
+  - process.parent.name
+  - process.command_line
+  - process.integrity_level
+  - user.name
+  - host.name
+level: high
+
+---
+# ─────────────────────────────────────────────────────────────────────────────
+# Variant: UAC Bypass via fodhelper Registry Hijack
+# Technique: T1548.002 — fodhelper.exe reads ms-settings registry key before
+# elevation; writing a payload there causes it to execute elevated.
+# ─────────────────────────────────────────────────────────────────────────────
+title: UAC Bypass via fodhelper.exe Registry Hijack
+id: 1a6c4e93-8d2f-4b7a-c5e1-3f0b9d6e2a85
+status: stable
+description: |
+  Detects UAC bypass via the fodhelper.exe registry hijack technique. An
+  attacker writes a malicious payload to HKCU\Software\Classes\ms-settings\
+  shell\open\command before launching fodhelper.exe, which auto-elevates
+  and executes the payload at high integrity without a UAC prompt.
+references:
+  - https://attack.mitre.org/techniques/T1548/002/
+  - https://github.com/winscripting/UAC-bypass/blob/master/FodhelperBypass.ps1
+author: SOC Lab Docker
+date: 2026-02-27
+tags:
+  - attack.privilege_escalation
+  - attack.defense_evasion
+  - attack.t1548.002
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_fodhelper:
+    process.name: fodhelper.exe
+  condition: selection_fodhelper
+falsepositives:
+  - Legitimate use of Windows Optional Features (fodhelper.exe) by end users
+  - "Combine with a registry modification rule on ms-settings key for higher
+    confidence: fodhelper.exe spawning an unexpected child process is critical."
+fields:
+  - process.name
+  - process.parent.name
+  - process.command_line
+  - user.name
+  - host.name
+level: medium
+
+---
+# ─────────────────────────────────────────────────────────────────────────────
+# Variant: fodhelper.exe Spawning Unexpected Child
+# Higher confidence: elevated child process from fodhelper is nearly always
+# indicative of a UAC bypass.
+# ─────────────────────────────────────────────────────────────────────────────
+title: fodhelper.exe Spawning Elevated Shell
+id: 4d7b1e08-3f5a-4c9d-b2e6-8a1c0f4e7b93
+status: stable
+description: |
+  High-confidence detection for UAC bypass via fodhelper.exe. Fires when
+  fodhelper.exe spawns cmd.exe, powershell.exe, or another shell — the
+  expected behavior if a malicious ms-settings registry key was written.
+references:
+  - https://attack.mitre.org/techniques/T1548/002/
+author: SOC Lab Docker
+date: 2026-02-27
+tags:
+  - attack.privilege_escalation
+  - attack.defense_evasion
+  - attack.t1548.002
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection:
+    process.parent.name: fodhelper.exe
+    process.name:
+      - cmd.exe
+      - powershell.exe
+      - pwsh.exe
+      - mshta.exe
+      - wscript.exe
+      - cscript.exe
+  condition: selection
+falsepositives:
+  - Rare; fodhelper.exe does not legitimately spawn shells
+fields:
+  - process.name
+  - process.parent.name
+  - process.command_line
+  - process.integrity_level
+  - user.name
+  - host.name
+level: critical
+
+---
+# ─────────────────────────────────────────────────────────────────────────────
+# Variant: Linux Privilege Escalation via sudo Shell
+# ─────────────────────────────────────────────────────────────────────────────
+title: Linux Full Shell Escalation via sudo
+id: 7b3e9a61-5d2c-4f8b-a1e4-c0d7f3b8e5a2
+status: stable
+description: |
+  Detects high-risk sudo usage that results in an interactive shell as root.
+  Commands like "sudo su -", "sudo -s", "sudo bash", and "sudo sh" drop the
+  user into a root shell and are rarely needed in production environments.
+references:
+  - https://attack.mitre.org/techniques/T1548/003/
+author: SOC Lab Docker
+date: 2026-02-27
+tags:
+  - attack.privilege_escalation
+  - attack.t1548.003
+logsource:
+  category: process_creation
+  product: linux
+detection:
+  selection:
+    process.name: sudo
+    process.command_line|contains:
+      - 'sudo su'
+      - 'sudo -s'
+      - 'sudo bash'
+      - 'sudo sh'
+      - 'sudo /bin/bash'
+      - 'sudo /bin/sh'
+  condition: selection
+falsepositives:
+  - System administrators performing authorized maintenance tasks
+  - On-call engineers following runbooks that require root shells
+fields:
+  - process.name
+  - process.command_line
+  - user.name
+  - host.name
+level: medium

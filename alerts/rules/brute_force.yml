@@ -1,0 +1,43 @@
+# ============================================================================
+# Alert Rule: Brute Force Authentication
+# ============================================================================
+# Format version: 1.0
+# This rule is consumed by scripts/alert_notifier.sh
+# ============================================================================
+
+name: brute_force_authentication
+enabled: true
+description: Rapid authentication failures indicating a brute force or password spray attack
+
+# Elasticsearch query — run against the lab index
+query:
+  index: "soc-lab-*"
+  filter:
+    - term:
+        event.category: authentication
+    - term:
+        event.outcome: failure
+
+# Aggregation: group by source.ip, alert when count exceeds threshold
+aggregation:
+  group_by: source.ip
+  metric: count
+  threshold: 10
+  timeframe: 5m
+
+# Alert metadata
+alert:
+  severity: high
+  mitre:
+    - T1110
+    - T1110.001
+    - T1110.003
+  runbook: docs/ALERTING.md#runbook-brute-force-authentication
+  message: |
+    Brute force detected: {count} authentication failures from {source.ip}
+    in the last 5 minutes targeting {unique_users} account(s).
+
+# Notification channels (configure credentials in .env)
+notify:
+  - slack
+  - webhook

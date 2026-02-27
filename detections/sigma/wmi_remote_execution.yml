@@ -1,0 +1,130 @@
+title: WMI Remote Execution via wmic.exe
+id: 5d8c1a34-2b7f-4e9c-a6d3-0f5b8c2e1a47
+status: stable
+description: |
+  Detects Windows Management Instrumentation (WMI) used for remote code
+  execution and lateral movement. Identifies wmic.exe invocations specifying
+  a remote target via the /node: parameter, which is the standard syntax for
+  WMI-based lateral movement.
+references:
+  - https://attack.mitre.org/techniques/T1047/
+  - https://attack.mitre.org/techniques/T1021/
+author: SOC Lab Docker
+date: 2026-02-27
+tags:
+  - attack.lateral_movement
+  - attack.execution
+  - attack.t1047
+  - attack.t1021
+  - attack.t1059.001
+  - attack.t1059.003
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection:
+    process.name: wmic.exe
+    process.command_line|contains: '/node:'
+  filter_local:
+    # Exclude local WMI queries (no remote target IP/hostname)
+    process.command_line|contains:
+      - '/node:localhost'
+      - '/node:127.0.0.1'
+  condition: selection and not filter_local
+falsepositives:
+  - SCCM and WSUS management agents querying remote hosts
+  - Legitimate system monitoring scripts using wmic /node:
+  - Asset inventory tools
+fields:
+  - process.name
+  - process.command_line
+  - process.parent.name
+  - user.name
+  - host.name
+level: medium
+
+---
+# ─────────────────────────────────────────────────────────────────────────────
+# Variant: WmiPrvSE.exe Spawning Interactive Shell
+# High-confidence — the WMI provider host does not legitimately spawn shells.
+# ─────────────────────────────────────────────────────────────────────────────
+title: WmiPrvSE.exe Spawning Interactive Shell
+id: 3c6e9b12-7a4f-4d8c-b1e5-2f9a0c5d7b38
+status: stable
+description: |
+  Detects WmiPrvSE.exe (the WMI Provider Service host) spawning cmd.exe or
+  powershell.exe. Legitimate WMI providers do not invoke interactive shells;
+  this pattern is a reliable indicator of WMI-based remote code execution.
+references:
+  - https://attack.mitre.org/techniques/T1047/
+  - https://attack.mitre.org/techniques/T1059/001/
+author: SOC Lab Docker
+date: 2026-02-27
+tags:
+  - attack.lateral_movement
+  - attack.execution
+  - attack.t1047
+  - attack.t1059.001
+  - attack.t1059.003
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection:
+    process.parent.name: WmiPrvSE.exe
+    process.name:
+      - cmd.exe
+      - powershell.exe
+      - pwsh.exe
+  condition: selection
+falsepositives:
+  - Vendor-supplied WMI providers that legitimately spawn helper processes
+  - Known monitoring agents (exclude by adding to filter)
+fields:
+  - process.name
+  - process.parent.name
+  - process.command_line
+  - user.name
+  - host.name
+level: high
+
+---
+# ─────────────────────────────────────────────────────────────────────────────
+# Variant: WMI Permanent Event Subscription (Persistence)
+# Cross-reference with persistence_simulation.sh events
+# ─────────────────────────────────────────────────────────────────────────────
+title: WMI Permanent Event Subscription Created
+id: 9e4a7f52-1c8d-4b3e-a6c9-5f2d0b8e3a71
+status: experimental
+description: |
+  Detects creation of WMI permanent event subscriptions, which consist of
+  three objects: __EventFilter, CommandLineEventConsumer, and
+  __FilterToConsumerBinding. Attackers use this mechanism to achieve
+  event-triggered persistent execution that survives reboots.
+references:
+  - https://attack.mitre.org/techniques/T1546/003/
+author: SOC Lab Docker
+date: 2026-02-27
+tags:
+  - attack.persistence
+  - attack.t1546.003
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_mofcomp:
+    process.name: mofcomp.exe
+  selection_wmic_subscription:
+    process.name: wmic.exe
+    process.command_line|contains: '/namespace:\\root\subscription'
+  condition: 1 of selection_*
+falsepositives:
+  - Legitimate software using WMI subscriptions for monitoring (rare)
+  - WMI provider installation by software packages
+fields:
+  - process.name
+  - process.command_line
+  - process.parent.name
+  - user.name
+  - host.name
+level: high

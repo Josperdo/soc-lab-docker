@@ -1,0 +1,76 @@
+title: Brute Force Authentication Attempt
+id: 7c2a45e1-3f8d-4b2c-9a1e-8d6f0c3b7a92
+status: stable
+description: |
+  Detects rapid authentication failures from a single source IP against one
+  or more accounts within a short time window, consistent with brute force
+  credential attacks or password spraying.
+references:
+  - https://attack.mitre.org/techniques/T1110/001/
+  - https://attack.mitre.org/techniques/T1110/003/
+author: SOC Lab Docker
+date: 2026-02-27
+tags:
+  - attack.credential_access
+  - attack.t1110
+  - attack.t1110.001
+  - attack.t1110.003
+  - attack.t1078
+logsource:
+  category: authentication
+detection:
+  selection:
+    event.category: authentication
+    event.outcome: failure
+  condition: selection | count() by source.ip > 10
+  timeframe: 5m
+falsepositives:
+  - Vulnerability scanners or security testing tools
+  - Locked-out accounts retrying authentication automatically
+  - Misconfigured service accounts with expired passwords
+  - CI/CD pipelines with incorrect credentials
+fields:
+  - source.ip
+  - user.name
+  - host.name
+  - authentication.service
+  - event.outcome
+level: medium
+
+---
+# ─────────────────────────────────────────────────────────────────────────────
+# Variant: Password Spray (many unique accounts from one IP)
+# A separate rule with a lower per-account failure count but high unique-user
+# count catches spray attacks that deliberately stay below per-account lockout.
+# ─────────────────────────────────────────────────────────────────────────────
+title: Password Spray — Many Accounts from Single Source
+id: b1f74d36-2e9c-4a5b-8d1f-3c7e0b4a6d82
+status: stable
+description: |
+  Detects a single source IP attempting authentication against more than five
+  distinct user accounts within ten minutes — the primary signature of password
+  spray attacks, which keep per-account failure counts low to avoid lockout.
+references:
+  - https://attack.mitre.org/techniques/T1110/003/
+author: SOC Lab Docker
+date: 2026-02-27
+tags:
+  - attack.credential_access
+  - attack.t1110.003
+logsource:
+  category: authentication
+detection:
+  selection:
+    event.category: authentication
+    event.outcome: failure
+  condition: selection | count(user.name) by source.ip > 5
+  timeframe: 10m
+falsepositives:
+  - Enterprise SSO systems authenticating on behalf of many users
+  - Password reset automation targeting multiple accounts
+fields:
+  - source.ip
+  - user.name
+  - host.name
+  - authentication.service
+level: high

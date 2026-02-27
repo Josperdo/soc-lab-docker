@@ -1,0 +1,132 @@
+title: PsExec Lateral Movement
+id: 2b9e4f17-8a3c-4d6b-b5e8-c2f0a1d9e3b5
+status: stable
+description: |
+  Detects PsExec lateral movement by identifying the PSEXESVC.exe service
+  binary that PsExec copies to the ADMIN$ share on the target host before
+  executing it via the Windows Service Control Manager. Also covers the common
+  indicator of cmd.exe spawned under PSEXESVC.exe with SYSTEM integrity.
+references:
+  - https://attack.mitre.org/techniques/T1021/002/
+  - https://attack.mitre.org/techniques/T1543/003/
+  - https://attack.mitre.org/techniques/T1570/
+author: SOC Lab Docker
+date: 2026-02-27
+tags:
+  - attack.lateral_movement
+  - attack.t1021.002
+  - attack.t1543.003
+  - attack.t1570
+  - attack.t1059.003
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_binary:
+    process.name: PSEXESVC.exe
+  selection_parent:
+    process.parent.name: PSEXESVC.exe
+  condition: 1 of selection_*
+falsepositives:
+  - Legitimate IT administration using Sysinternals PsExec for remote management
+  - Software deployment pipelines that copy service binaries to remote hosts
+  - "Note: PSEXESVC.exe appearing in any environment warrants investigation;
+    establish an allowed host list for IT admin workstations and exclude."
+fields:
+  - process.name
+  - process.parent.name
+  - process.command_line
+  - user.name
+  - host.name
+  - process.integrity_level
+level: high
+
+---
+# ─────────────────────────────────────────────────────────────────────────────
+# Variant: Remote cmd.exe as SYSTEM
+# High-confidence indicator — SYSTEM-integrity cmd.exe from a remote execution
+# parent is almost never legitimate.
+# ─────────────────────────────────────────────────────────────────────────────
+title: Remote cmd.exe Spawned with SYSTEM Integrity
+id: 4e7f1a29-6c3d-4b8e-a5f2-9d0c8b1e4f73
+status: stable
+description: |
+  Detects cmd.exe running at SYSTEM integrity level spawned by PSEXESVC.exe
+  or services.exe in unexpected contexts. This is a high-confidence indicator
+  of remote code execution via PsExec or similar lateral movement tools.
+references:
+  - https://attack.mitre.org/techniques/T1021/002/
+  - https://attack.mitre.org/techniques/T1059/003/
+author: SOC Lab Docker
+date: 2026-02-27
+tags:
+  - attack.lateral_movement
+  - attack.t1021.002
+  - attack.execution
+  - attack.t1059.003
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection:
+    process.name: cmd.exe
+    process.integrity_level: System
+    process.parent.name:
+      - PSEXESVC.exe
+      - services.exe
+  filter_legitimate:
+    # Exclude known legitimate SYSTEM shell contexts (add as needed)
+    process.command_line|contains:
+      - 'MpCmdRun'
+      - 'SilentInstall'
+  condition: selection and not filter_legitimate
+falsepositives:
+  - Windows Installer running post-install scripts as SYSTEM
+  - Legitimate system maintenance scripts
+fields:
+  - process.name
+  - process.parent.name
+  - process.command_line
+  - user.name
+  - host.name
+  - process.integrity_level
+level: high
+
+---
+# ─────────────────────────────────────────────────────────────────────────────
+# Variant: Admin Share SMB Scanning
+# ─────────────────────────────────────────────────────────────────────────────
+title: Admin Share Access via net.exe
+id: 8d1c5f30-4a7b-4e9d-b2c6-0f3e8a1d5c92
+status: experimental
+description: |
+  Detects net.exe commands accessing administrative shares (ADMIN$, C$, IPC$),
+  which are used by PsExec and similar tools to transfer binaries and establish
+  remote service connections during lateral movement operations.
+references:
+  - https://attack.mitre.org/techniques/T1021/002/
+author: SOC Lab Docker
+date: 2026-02-27
+tags:
+  - attack.lateral_movement
+  - attack.t1021.002
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection:
+    process.name: net.exe
+    process.command_line|contains:
+      - '\ADMIN$'
+      - '\C$'
+      - '\IPC$'
+  condition: selection
+falsepositives:
+  - Legitimate admin share mapping by IT staff
+  - Software deployment tools using admin shares
+fields:
+  - process.name
+  - process.command_line
+  - user.name
+  - host.name
+level: medium

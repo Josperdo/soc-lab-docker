@@ -1,0 +1,203 @@
+title: Large Outbound Transfer on Non-Standard Port
+id: 6c4f9a18-7b2e-4d5c-a3f8-1b9e6c0d4a25
+status: stable
+description: |
+  Detects potential data exfiltration by identifying repeated outbound TCP
+  connections to external IPs on ports not associated with standard business
+  traffic (web, email, DNS). Volume-based thresholding reduces false positives
+  from one-off connections.
+references:
+  - https://attack.mitre.org/techniques/T1041/
+  - https://attack.mitre.org/techniques/T1048/
+  - https://attack.mitre.org/techniques/T1048/003/
+author: SOC Lab Docker
+date: 2026-02-27
+tags:
+  - attack.exfiltration
+  - attack.t1041
+  - attack.t1048
+  - attack.t1048.003
+  - attack.t1071.001
+logsource:
+  category: network_connection
+detection:
+  selection:
+    event.category: network
+    network.transport: tcp
+    event.outcome: success
+  filter_standard_ports:
+    destination.port:
+      - 80
+      - 443
+      - 53
+      - 22
+      - 25
+      - 143
+      - 465
+      - 587
+      - 993
+      - 995
+  filter_internal_destinations:
+    destination.ip|cidr:
+      - '10.0.0.0/8'
+      - '172.16.0.0/12'
+      - '192.168.0.0/16'
+  condition: selection and not filter_standard_ports and not filter_internal_destinations | count() by source.ip > 10
+  timeframe: 10m
+falsepositives:
+  - Business applications using non-standard ports (databases, custom APIs)
+  - VPN clients connecting on non-standard ports
+  - Backup software sending data to cloud storage on alternate ports
+fields:
+  - source.ip
+  - destination.ip
+  - destination.port
+  - host.name
+  - network.transport
+level: medium
+
+---
+# ─────────────────────────────────────────────────────────────────────────────
+# Variant: Known C2/RAT Port Activity
+# Higher confidence: these specific ports are commonly used by C2 frameworks.
+# ─────────────────────────────────────────────────────────────────────────────
+title: Outbound Connection to Known C2 Port
+id: 2f8e5b13-9a4c-4d7f-b1e6-3c0d9a8f5b24
+status: stable
+description: |
+  Detects TCP connections to destination ports frequently used by C2 frameworks
+  and remote access tools: 4444 (Metasploit default), 1337, 31337, 8443, 8080.
+  While 8080 and 8443 have some legitimate use, the others are strong indicators.
+references:
+  - https://attack.mitre.org/techniques/T1071/001/
+  - https://attack.mitre.org/techniques/T1041/
+author: SOC Lab Docker
+date: 2026-02-27
+tags:
+  - attack.command_and_control
+  - attack.exfiltration
+  - attack.t1071.001
+  - attack.t1041
+logsource:
+  category: network_connection
+detection:
+  selection_high_confidence:
+    destination.port:
+      - 4444
+      - 4445
+      - 1337
+      - 31337
+  selection_medium_confidence:
+    destination.port:
+      - 8443
+      - 8080
+  condition: 1 of selection_*
+falsepositives:
+  - Development environments using non-standard ports for local services
+  - Security tools that listen on 4444 (Metasploit listeners in authorized tests)
+  - 8080/8443: Proxy servers, development web servers, and some vendor products
+fields:
+  - source.ip
+  - destination.ip
+  - destination.port
+  - host.name
+level: high
+
+---
+# ─────────────────────────────────────────────────────────────────────────────
+# Variant: Archive Tool Execution (Data Staging)
+# ─────────────────────────────────────────────────────────────────────────────
+title: Data Archiving Tool Accessing Sensitive Directories
+id: 1e5c8a27-4f3b-4d9e-b6c2-7a0f3e1d8c95
+status: stable
+description: |
+  Detects archiving and compression utilities (7-Zip, WinRAR, tar, zip)
+  accessing directories that commonly contain sensitive data, such as
+  user document folders or network shares. Data staging before exfiltration
+  typically involves archiving files from multiple locations.
+references:
+  - https://attack.mitre.org/techniques/T1560/001/
+  - https://attack.mitre.org/techniques/T1074/001/
+author: SOC Lab Docker
+date: 2026-02-27
+tags:
+  - attack.collection
+  - attack.t1560.001
+  - attack.t1074.001
+logsource:
+  category: process_creation
+detection:
+  selection_tool:
+    process.name:
+      - 7z.exe
+      - 7za.exe
+      - rar.exe
+      - winrar.exe
+      - zip.exe
+      - tar
+  selection_sensitive_path:
+    process.command_line|contains:
+      - '\Documents'
+      - '\Finance'
+      - '\HR'
+      - '\Confidential'
+      - '\Users\'
+      - 'C:\Users'
+      - '\\fileserver'
+  condition: selection_tool and selection_sensitive_path
+falsepositives:
+  - Legitimate backup agents archiving user data
+  - IT-managed compression of audit logs
+  - Approved data archival workflows
+fields:
+  - process.name
+  - process.command_line
+  - process.parent.name
+  - user.name
+  - host.name
+level: medium
+
+---
+# ─────────────────────────────────────────────────────────────────────────────
+# Variant: certutil.exe Encoding (Defense Evasion)
+# certutil.exe is a LOLBin commonly used to encode data before exfiltration.
+# ─────────────────────────────────────────────────────────────────────────────
+title: certutil.exe Used for Data Encoding
+id: 7a3d6f41-2c8e-4b5d-b9a3-1f4e7c0d2a86
+status: stable
+description: |
+  Detects certutil.exe invoked with the -encode or -decode flag to convert
+  binary files to Base64. While certutil.exe has legitimate PKI uses,
+  encoding arbitrary files (especially archives or executables) is a common
+  defense evasion technique used before exfiltration.
+references:
+  - https://attack.mitre.org/techniques/T1027/
+  - https://lolbas-project.github.io/lolbas/Binaries/Certutil/
+author: SOC Lab Docker
+date: 2026-02-27
+tags:
+  - attack.defense_evasion
+  - attack.exfiltration
+  - attack.t1027
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection:
+    process.name: certutil.exe
+    process.command_line|contains:
+      - '-encode'
+      - '-decode'
+      - '/encode'
+      - '/decode'
+  condition: selection
+falsepositives:
+  - PKI certificate management operations using certutil
+  - System administrators using certutil to encode configuration files
+fields:
+  - process.name
+  - process.command_line
+  - process.parent.name
+  - user.name
+  - host.name
+level: medium

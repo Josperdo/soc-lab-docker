@@ -1,0 +1,47 @@
+# ============================================================================
+# Alert Rule: Large Data Transfer / Exfiltration
+# ============================================================================
+
+name: large_data_transfer
+enabled: true
+description: High-volume outbound transfer on a non-standard port — potential exfiltration
+
+query:
+  index: "soc-lab-*"
+  filter:
+    - term:
+        event.category: network
+    - term:
+        network.transport: tcp
+    - term:
+        event.outcome: success
+  must_not:
+    - terms:
+        destination.port: [80, 443, 53, 22, 25, 143, 465, 587, 993, 995]
+    - range:
+        destination.ip:
+          # Approximate RFC-1918 exclusion — refine for your environment
+          gte: "10.0.0.0"
+          lte: "10.255.255.255"
+
+aggregation:
+  group_by: source.ip
+  metric: count
+  threshold: 10
+  timeframe: 10m
+
+alert:
+  severity: medium
+  mitre:
+    - T1041
+    - T1048
+    - T1048.003
+  runbook: docs/ALERTING.md#runbook-large-data-transfer
+  message: |
+    Suspicious outbound activity from {source.ip} on {host.name}:
+    {count} connections to {destination.ip}:{destination.port}
+    in the last 10 minutes on a non-standard port.
+
+notify:
+  - slack
+  - webhook

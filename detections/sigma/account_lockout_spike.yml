@@ -1,0 +1,79 @@
+title: Account Lockout Spike
+id: a4f81d23-c7e5-4b9a-8f2d-1c6e3b0a4d78
+status: stable
+description: |
+  Detects a sudden increase in authentication failures indicating that one or
+  more accounts are being locked out, which is a common side effect of password
+  spray and brute force attacks. Unlike the brute force rule (which looks for
+  volume per source IP), this rule fires on the failure pattern itself and is
+  useful when source IP rotation is used to evade per-IP thresholds.
+references:
+  - https://attack.mitre.org/techniques/T1110/001/
+  - https://attack.mitre.org/techniques/T1110/003/
+author: SOC Lab Docker
+date: 2026-02-27
+tags:
+  - attack.credential_access
+  - attack.t1110
+  - attack.t1110.001
+  - attack.t1110.003
+logsource:
+  category: authentication
+detection:
+  selection:
+    event.category: authentication
+    event.outcome: failure
+  condition: selection | count() by user.name > 5
+  timeframe: 5m
+falsepositives:
+  - Misconfigured services or applications with stale credentials
+  - Users repeatedly mistyping their password
+  - Account synchronization failures during password changes
+fields:
+  - source.ip
+  - user.name
+  - host.name
+  - authentication.service
+level: medium
+
+---
+# ─────────────────────────────────────────────────────────────────────────────
+# Variant: Credential Stuffing Confirmation (success after failures)
+# ─────────────────────────────────────────────────────────────────────────────
+title: Successful Login Following Authentication Failures
+id: d9c23f45-1b8e-4a7d-b5c2-6e0f3a1d8b94
+status: stable
+description: |
+  Detects a successful authentication event from the same source IP that
+  previously generated multiple failures within the same time window. This
+  pattern confirms credential stuffing, where the attacker found a valid
+  credential after exhausting a list of guesses.
+references:
+  - https://attack.mitre.org/techniques/T1110/004/
+  - https://attack.mitre.org/techniques/T1078/
+author: SOC Lab Docker
+date: 2026-02-27
+tags:
+  - attack.credential_access
+  - attack.t1110.004
+  - attack.t1078
+  - attack.defense_evasion
+logsource:
+  category: authentication
+detection:
+  failures:
+    event.category: authentication
+    event.outcome: failure
+  success:
+    event.category: authentication
+    event.outcome: success
+  condition: failures | count() by source.ip > 5 | join success on source.ip
+  timeframe: 15m
+falsepositives:
+  - Users who mistype their password several times before succeeding
+  - Password manager auto-fill failures followed by manual entry
+fields:
+  - source.ip
+  - user.name
+  - host.name
+level: high
