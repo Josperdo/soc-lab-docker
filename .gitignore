@@ -291,9 +291,6 @@ exports/
 # CI/CD & DevOps
 # ============================================================================
 
-# GitHub Actions
-.github/workflows/*.yml
-.github/workflows/*.yaml
 
 # Coverage reports
 .coverage

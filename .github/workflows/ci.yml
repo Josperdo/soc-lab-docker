@@ -1,0 +1,166 @@
+# =============================================================================
+# SOC Lab Docker – CI: Stack Integration Test
+# =============================================================================
+#
+# Runs on every push and PR to main.
+# Tests the full pipeline end-to-end on Linux and macOS:
+#   1. Start the Docker Compose ELK stack
+#   2. Wait for Elasticsearch + Kibana to be healthy
+#   3. Confirm events flow from generator → Filebeat → Elasticsearch
+#   4. Run the brute force attack simulation
+#   5. Confirm simulation events are indexed
+#
+# macOS runners do not have Docker pre-installed; Colima is used as the
+# Docker runtime (free, CLI-compatible, no Docker Desktop license needed).
+# =============================================================================
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  integration-test:
+    name: Integration test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+
+    strategy:
+      fail-fast: false   # let both OS jobs run even if one fails
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+
+    steps:
+      # -----------------------------------------------------------------------
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # -----------------------------------------------------------------------
+      # macOS: Docker is not pre-installed — use Colima as the runtime
+      # -----------------------------------------------------------------------
+      - name: Set up Docker via Colima (macOS only)
+        if: runner.os == 'macOS'
+        run: |
+          brew install colima docker docker-compose
+          colima start --cpu 2 --memory 4 --disk 20
+          # Brief pause to ensure the daemon socket is ready
+          sleep 5
+          docker info   # fail fast if Docker isn't accessible
+
+      # -----------------------------------------------------------------------
+      - name: Prepare environment
+        run: |
+          cp .env.example .env
+          # Ensure the log directory exists with correct permissions
+          mkdir -p data/logs
+
+      # -----------------------------------------------------------------------
+      - name: Start lab stack
+        run: docker-compose up -d
+
+      # -----------------------------------------------------------------------
+      - name: Wait for Elasticsearch to be healthy
+        run: |
+          echo "Polling Elasticsearch health (up to 5 min)..."
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:9200/_cluster/health 2>/dev/null \
+                | grep -qv '"status":"red"'; then
+              echo "Elasticsearch is healthy"
+              curl -s http://localhost:9200/_cluster/health
+              break
+            fi
+            if [ "$i" -eq 30 ]; then
+              echo "Elasticsearch failed to become healthy in time"
+              docker-compose logs --tail=40 elasticsearch
+              exit 1
+            fi
+            echo "  ($i/30) not ready — retrying in 10s..."
+            sleep 10
+          done
+
+      # -----------------------------------------------------------------------
+      - name: Wait for Kibana to be available
+        run: |
+          echo "Polling Kibana status (up to 5 min)..."
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:5601/api/status 2>/dev/null \
+                | grep -q '"level":"available"'; then
+              echo "Kibana is available"
+              break
+            fi
+            if [ "$i" -eq 30 ]; then
+              echo "Kibana failed to become available in time"
+              docker-compose logs --tail=40 kibana
+              exit 1
+            fi
+            echo "  ($i/30) not ready — retrying in 10s..."
+            sleep 10
+          done
+
+      # -----------------------------------------------------------------------
+      - name: Wait for events to appear in Elasticsearch
+        run: |
+          echo "Waiting for generator → Filebeat → Elasticsearch pipeline..."
+          for i in $(seq 1 18); do
+            count=$(curl -sf "http://localhost:9200/soc-lab-*/_count" 2>/dev/null \
+              | python3 -c "import sys,json; print(json.load(sys.stdin).get('count',0))" \
+              2>/dev/null || echo 0)
+            if [ "$count" -gt 0 ]; then
+              echo "Events confirmed in Elasticsearch: $count"
+              break
+            fi
+            if [ "$i" -eq 18 ]; then
+              echo "No events indexed after timeout"
+              docker-compose logs --tail=30 log-generator
+              docker-compose logs --tail=30 filebeat
+              exit 1
+            fi
+            echo "  ($i/18) count=$count — retrying in 10s..."
+            sleep 10
+          done
+
+      # -----------------------------------------------------------------------
+      - name: Run brute force simulation
+        run: bash scripts/brute_force_simulation.sh
+
+      # -----------------------------------------------------------------------
+      - name: Verify simulation events are indexed
+        run: |
+          echo "Waiting 15s for simulation events to be indexed..."
+          sleep 15
+          count=$(curl -sf "http://localhost:9200/soc-lab-*/_search" \
+            -H "Content-Type: application/json" \
+            -d '{"query":{"term":{"labels.simulation":"attack"}},"track_total_hits":true}' \
+            2>/dev/null \
+            | python3 -c \
+              "import sys,json; d=json.load(sys.stdin); print(d['hits']['total']['value'])" \
+            2>/dev/null || echo 0)
+          echo "Simulation events found: $count"
+          if [ "$count" -eq 0 ]; then
+            echo "ERROR: No simulation events found in index"
+            exit 1
+          fi
+          echo "Simulation events confirmed"
+
+      # -----------------------------------------------------------------------
+      - name: Dump all service logs on failure
+        if: failure()
+        run: |
+          echo "===== docker-compose ps ====="
+          docker-compose ps
+          echo "===== elasticsearch (last 50 lines) ====="
+          docker-compose logs --tail=50 elasticsearch
+          echo "===== log-generator (last 50 lines) ====="
+          docker-compose logs --tail=50 log-generator
+          echo "===== filebeat (last 50 lines) ====="
+          docker-compose logs --tail=50 filebeat
+          echo "===== kibana (last 50 lines) ====="
+          docker-compose logs --tail=50 kibana
+
+      # -----------------------------------------------------------------------
+      - name: Teardown
+        if: always()
+        run: docker-compose down -v
