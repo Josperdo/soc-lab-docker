@@ -1,5 +1,7 @@
 # SOC Lab Docker
 
+[![CI](https://github.com/yourusername/soc-lab-docker/actions/workflows/ci.yml/badge.svg)](https://github.com/Josperdo/soc-lab-docker/actions/workflows/ci.yml)
+
 **A forkable, Docker-based detection engineering lab for learning blue team skills**
 
 ---

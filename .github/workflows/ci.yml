@@ -3,19 +3,21 @@
 # =============================================================================
 #
 # Runs on every push and PR to main.
-# Tests the full pipeline end-to-end on Linux and macOS:
+# Tests the full pipeline end-to-end on Linux (ubuntu-latest):
 #   1. Start the Docker Compose ELK stack
 #   2. Wait for Elasticsearch + Kibana to be healthy
 #   3. Confirm events flow from generator → Filebeat → Elasticsearch
 #   4. Run the brute force attack simulation
 #   5. Confirm simulation events are indexed
 #
-# Ubuntu: uses docker compose (V2 plugin, pre-installed on ubuntu-latest).
-#         The standalone docker-compose V1 binary was removed from runners.
+# Platform coverage:
+#   Ubuntu:  uses docker compose (V2 plugin, pre-installed on ubuntu-latest).
+#            The standalone docker-compose V1 binary was removed from runners.
 #
-# macOS:  Docker is not pre-installed. Colima is used as the runtime.
-#         --vm-type qemu is required; the default VZ driver crashes on
-#         GitHub-hosted runners.
+#   macOS:   Not tested in CI — QEMU/Colima setup on GitHub-hosted runners is
+#            unreliable. Verified to work locally with Docker Desktop for Mac.
+#
+#   Windows: Not tested in CI. Verified to work via Docker Desktop + WSL2.
 # =============================================================================
 
 name: CI
@@ -33,45 +35,13 @@ jobs:
     timeout-minutes: 35
 
     strategy:
-      fail-fast: false   # let both OS jobs run even if one fails
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: [ubuntu-latest]
 
     steps:
       # -----------------------------------------------------------------------
       - name: Checkout repository
         uses: actions/checkout@v4
-
-      # -----------------------------------------------------------------------
-      # macOS: Docker is not pre-installed — use Colima as the runtime.
-      # --vm-type qemu: the default VZ (Virtualization.framework) driver
-      # crashes on GitHub-hosted runners; QEMU is slower but reliable.
-      #
-      # PATH note: on Apple Silicon runners brew installs qemu into a keg
-      # at $(brew --prefix qemu)/bin which is NOT always symlinked into
-      # $(brew --prefix)/bin. We add the keg bin explicitly so Colima can
-      # find qemu-img before calling `colima start`.
-      # -----------------------------------------------------------------------
-      - name: Set up Docker via Colima (macOS only)
-        if: runner.os == 'macOS'
-        run: |
-          brew install colima docker docker-compose qemu
-
-          # Register docker-compose as a Docker CLI plugin so that
-          # `docker compose` (plugin form) works alongside the standalone binary
-          mkdir -p ~/.docker/cli-plugins
-          ln -sfn "$(brew --prefix)/opt/docker-compose/bin/docker-compose" \
-                  ~/.docker/cli-plugins/docker-compose
-
-          # Expose the QEMU keg bin so colima can locate qemu-img
-          export PATH="$(brew --prefix qemu)/bin:$PATH"
-          echo "qemu-img: $(which qemu-img)"
-
-          # Start Colima with QEMU — VZ driver fails on GitHub Actions runners
-          colima start --cpu 2 --memory 4 --disk 20 --vm-type qemu
-
-          # Verify the daemon is reachable before proceeding
-          docker info
 
       # -----------------------------------------------------------------------
       - name: Prepare environment
