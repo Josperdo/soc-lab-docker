@@ -4,127 +4,122 @@
 
 ## Overview
 
-This directory contains Bash and Python scripts that simulate common attack patterns, generating coordinated event chains detectable by security monitoring tools.
+This directory contains Bash scripts that simulate common attack patterns, generating coordinated event chains detectable by security monitoring tools. Events are written as JSON to a log file picked up by Filebeat and indexed into Elasticsearch, where they can be queried in Kibana alongside baseline traffic from the log generator.
 
-## Structure
+All scripts generate **synthetic events only** — they do not execute actual attacks or make real network connections.
 
-This directory contains Bash and Python scripts that simulate common attack patterns, generating coordinated event chains detectable by security monitoring tools.
+---
 
-**Key files:**
+## Scripts
 
-- `brute_force_simulation.sh` – Simulate failed authentication attempts
-- `lateral_movement_simulation.sh` – Simulate lateral movement (e.g., PsExec, SMB)
-- `exfiltration_simulation.sh` – Simulate data exfiltration techniques
-- `privilege_escalation_simulation.sh` – Simulate privilege escalation attempts
-- `persistence_simulation.sh` – Simulate persistence mechanisms (scheduled tasks, registry keys)
-- `c2_beacon_simulation.sh` – Simulate command-and-control beacon callbacks
-- `utils.sh` – Shared utility functions (logging, event correlation, cleanup)
-- `config/scenarios.yaml` – Attack scenario definitions and parameters
+| Script | Scenario | MITRE Techniques |
+|--------|----------|-----------------|
+| `brute_force_simulation.sh` | Credential brute force + post-compromise discovery | T1110, T1078 |
+| `lateral_movement_simulation.sh` | PsExec lateral movement + C2 beacon | T1021.002, T1570, T1071 |
+| `exfiltration_simulation.sh` | Data staging and large outbound transfer | T1005, T1560, T1048 |
+| `c2_beacon_simulation.sh` | Spearphishing → implant → persistent C2 callbacks | T1566.001, T1059.001, T1071.001, T1029 |
+| `persistence_simulation.sh` | Registry, scheduled task, WMI, service, startup folder | T1547.001, T1053.005, T1546.003, T1543.003 |
+| `privilege_escalation_simulation.sh` | Kerberoasting + UAC bypass + token impersonation | T1558.003, T1548.002, T1134.001 |
+| `apt_scenario.sh` | Full 7-phase APT kill chain (coordinator) | T1566→T1070 (12 techniques) |
+| `utils.sh` | Shared utilities — sourced by all other scripts | — |
 
-## Capabilities
+---
 
-**Multi-step attack chains**
-
-- Coordinated sequences of events (reconnaissance → exploitation → persistence)
-- Realistic timing and intervals between steps
-- Event correlation IDs for tracking attack chains
-
-**Configurable parameters**
-
-- Target hosts and users
-- Attack duration and intensity
-- Success/failure ratio
-- Detection avoidance techniques (optional, for advanced learning)
-
-**Artifact generation**
-
-- Network connections (logs, DNS)
-- Process execution chains
-- File modifications
-- Registry changes
-- Auth events
-
-**Integration with event pipeline**
-
-- Events written to log files
-- Automatic pickup by log aggregator
-- Correlation in detection engine
-
-## Usage Examples
+## Quick Start
 
 ```bash
-# Simulate brute force attack against admin account
-./brute_force_simulation.sh --target-user admin --attempts 50 --delay 200ms
+# Start the lab
+docker compose up -d
 
-# Simulate lateral movement chain
-./lateral_movement_simulation.sh --start-host web-01 --targets db-01,db-02,dc-01
+# Wait for Elasticsearch to be healthy, then run any scenario
+bash scripts/brute_force_simulation.sh
+bash scripts/c2_beacon_simulation.sh
+bash scripts/persistence_simulation.sh
+bash scripts/privilege_escalation_simulation.sh
+bash scripts/lateral_movement_simulation.sh
+bash scripts/exfiltration_simulation.sh
 
-# Simulate multi-phase APT scenario
-./c2_beacon_simulation.sh --callback-interval 60s --duration 10m --data-transfer 5gb
-
-# List all available scenarios
-./attack_simulator.sh --list-scenarios
+# Full APT kill chain (runs all phases end-to-end)
+bash scripts/apt_scenario.sh
 ```
 
-## Attack Scenarios
+After running a script, open Kibana Discover (`http://localhost:5601`) and filter on `labels.simulation: attack` to see the generated events.
 
-The scripts provide several core attack scenarios for learning and testing:
+---
 
-**Included Scenarios:**
+## Usage
 
-1. **Brute Force Attack** (`brute_force_simulation.sh`)
-   - Multiple failed login attempts
-   - Ramp-up pattern (1 attempt, then escalation)
-   - Expected detection: Failed login spike
+Each script supports configuration via environment variables. See the script header for the full list of options.
 
-2. **Lateral Movement** (`lateral_movement_simulation.sh`)
-   - Initial compromise → lateral tool usage (PsExec, SMB)
-   - Expected detection: Unusual lateral connection, suspicious process parent
+```bash
+# Brute force with custom settings
+ATTEMPT_COUNT=100 TARGET_USER=administrator bash scripts/brute_force_simulation.sh
 
-3. **Data Exfiltration** (`exfiltration_simulation.sh`)
-   - Large file access and transfer
-   - DNS exfiltration (optional)
-   - Expected detection: Unusual egress volume, DNS anomalies
+# C2 beacon with more pulses and a fixed C2 IP
+BEACON_COUNT=12 C2_IP=198.51.100.42 bash scripts/c2_beacon_simulation.sh
 
-For additional scenarios and advanced attack simulations, see [docs/roadmap.md](../docs/roadmap.md).
+# Persistence against a specific host/user
+TARGET_HOST=workstation-15 TARGET_USER=bsmith bash scripts/persistence_simulation.sh
 
-## Configuration
+# Privilege escalation with custom domain
+DOMAIN=ACME DC_HOST=addc-01 SVC_ACCOUNT=svc_exchange bash scripts/privilege_escalation_simulation.sh
 
-See `config/scenarios.yaml` for:
+# Full APT scenario with custom victim context
+VICTIM_HOST=workstation-08 VICTIM_USER=cjones C2_IP=198.51.100.77 bash scripts/apt_scenario.sh
 
-- Scenario definitions (steps, timings, targets)
-- Event templates (what logs are generated)
-- Parameter validation and constraints
+# Isolate a scenario to its own log file
+LOG_FILE=./data/logs/c2-test.json bash scripts/c2_beacon_simulation.sh
+```
 
-## Integration with Lab Stack
+---
 
-Scripts assume:
+## Detection Workflow
 
-1. **Mock event generator is running** – Events are written to `/var/log/soc-lab/`
-2. **Log aggregator is monitoring logs** – Filebeat/Logstash picks up new events
-3. **Elasticsearch/data lake is available** – Events are indexed for querying
+1. Start the lab: `docker compose up -d`
+2. Wait for baseline data to accumulate (5–10 minutes)
+3. Run a simulation: `bash scripts/apt_scenario.sh`
+4. Open Kibana Discover: `http://localhost:5601`
+5. Filter: `labels.simulation: attack` to isolate simulation events
+6. Run the matching detection query from `detections/`
+7. Document which detections fired and where gaps exist
+8. Tune thresholds as needed
+
+For full event chain documentation, detection opportunities, blind spots, and MITRE mappings for each scenario, see [docs/ATTACK_SCENARIOS.md](../docs/ATTACK_SCENARIOS.md).
+
+---
+
+## How Events Flow
+
+```
+Script → data/logs/attack-simulation.json → Filebeat → Elasticsearch → Kibana
+```
+
+All events use `labels.simulation: attack` for easy filtering and `labels.synthetic: true` to distinguish them from real events.
+
+---
 
 ## Safety & Ethics
 
-**Important Notes:**
+- These scripts generate **synthetic log events only** — no real network connections, no actual privilege changes, no file system modifications outside `./data/logs/`
+- For use **within the SOC Lab environment only**
+- Do **not** run against production systems or real infrastructure
 
-- These scripts generate **synthetic events only** – they do NOT execute actual attacks
-- Use **only within the SOC Lab environment**
-- Do **not** run against production systems
-- For learning purposes only
-- Always document and timestamp attack simulations in lab notes
+---
 
-## Testing Detections
+## Shared Utilities (`utils.sh`)
 
-Typical workflow:
+Sourced by all scripts. Provides:
 
-1. Start the lab with `docker-compose up`
-2. Wait for baseline data to accumulate (5–10 minutes)
-3. Run an attack simulation: `./brute_force_simulation.sh --target-user admin --attempts 50`
-4. Observe detection queries firing: `http://localhost:5601`
-5. Document which detections fired and any gaps
-6. Tune detection thresholds if needed
-
-## Next Steps
-
-For advanced attack scenarios and additional simulation techniques, see [docs/roadmap.md](../docs/roadmap.md) for planned enhancements.
+| Function | Description |
+|----------|-------------|
+| `log_info` / `log_warn` / `log_error` / `log_step` | Timestamped colored output |
+| `check_lab_running` | Verifies Elasticsearch is reachable |
+| `write_event` | Appends a JSON event to `$LOG_FILE` |
+| `make_auth_event` | Builds an ECS authentication event |
+| `make_process_event` | Builds an ECS process execution event |
+| `make_network_event` | Builds an ECS network flow event |
+| `make_registry_event` | Builds an ECS registry modification event |
+| `make_dns_event` | Builds an ECS DNS query event |
+| `random_external_ip` | Returns a random RFC 5737 external IP |
+| `random_internal_ip` | Returns a random 10.0.x.x internal IP |
+| `step_delay` | Sleeps for `$ATTACK_STEP_DELAY_MS` ms (default 500ms) |

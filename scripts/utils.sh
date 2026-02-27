@@ -121,9 +121,11 @@ make_auth_event() {
     local service="${5:-sshd}"
     local ts
     ts=$(date -u '+%Y-%m-%dT%H:%M:%S.000Z')
+    local username_j="${username//\\/\\\\}"
+    username_j="${username_j//\"/\\\"}"
 
     cat <<JSON
-{"@timestamp":"${ts}","event":{"category":["authentication"],"action":"logon","outcome":"${outcome}","kind":"event","dataset":"soc-lab.authentication"},"user":{"name":"${username}"},"source":{"ip":"${src_ip}","port":$((RANDOM % 60000 + 1024))},"destination":{"ip":"10.0.1.$((RANDOM % 200 + 10))","port":$([[ "$service" == "rdp" ]] && echo 3389 || echo 22)},"authentication":{"service":"${service}","type":"network"},"host":{"name":"${dst_host}"},"labels":{"lab":"soc-lab","synthetic":true,"simulation":"attack"}}
+{"@timestamp":"${ts}","event":{"category":["authentication"],"action":"logon","outcome":"${outcome}","kind":"event","dataset":"soc-lab.authentication"},"user":{"name":"${username_j}"},"source":{"ip":"${src_ip}","port":$((RANDOM % 60000 + 1024))},"destination":{"ip":"10.0.1.$((RANDOM % 200 + 10))","port":$([[ "$service" == "rdp" ]] && echo 3389 || echo 22)},"authentication":{"service":"${service}","type":"network"},"host":{"name":"${dst_host}"},"labels":{"lab":"soc-lab","synthetic":true,"simulation":"attack"}}
 JSON
 }
 
@@ -137,9 +139,11 @@ make_process_event() {
     local hostname="${5:-workstation-01}"
     local ts
     ts=$(date -u '+%Y-%m-%dT%H:%M:%S.000Z')
+    local cmdline_j="${cmdline//\\/\\\\}"
+    cmdline_j="${cmdline_j//\"/\\\"}"
 
     cat <<JSON
-{"@timestamp":"${ts}","event":{"category":["process"],"action":"process_started","outcome":"success","kind":"event","dataset":"soc-lab.process_execution","type":["start"]},"process":{"name":"${child}","executable":"C:\\\\Windows\\\\System32\\\\${child}","command_line":"${cmdline}","pid":$((RANDOM % 60000 + 1000)),"parent":{"name":"${parent}","pid":$((RANDOM % 1000 + 100))}},"user":{"name":"${username}"},"host":{"name":"${hostname}","os":{"type":"windows"}},"labels":{"lab":"soc-lab","synthetic":true,"simulation":"attack"}}
+{"@timestamp":"${ts}","event":{"category":["process"],"action":"process_started","outcome":"success","kind":"event","dataset":"soc-lab.process_execution","type":["start"]},"process":{"name":"${child}","executable":"C:\\\\Windows\\\\System32\\\\${child}","command_line":"${cmdline_j}","pid":$((RANDOM % 60000 + 1000)),"parent":{"name":"${parent}","pid":$((RANDOM % 1000 + 100))}},"user":{"name":"${username}"},"host":{"name":"${hostname}","os":{"type":"windows"}},"labels":{"lab":"soc-lab","synthetic":true,"simulation":"attack"}}
 JSON
 }
 
@@ -156,6 +160,40 @@ make_network_event() {
 
     cat <<JSON
 {"@timestamp":"${ts}","event":{"category":["network"],"action":"network_flow","outcome":"success","kind":"event","dataset":"soc-lab.network"},"source":{"ip":"${src_ip}","port":$((RANDOM % 60000 + 1024)),"bytes":${bytes_out}},"destination":{"ip":"${dst_ip}","port":${dst_port},"bytes":$((bytes_out / 10))},"network":{"transport":"tcp","direction":"outbound","bytes":${bytes_out}},"host":{"name":"${hostname}"},"labels":{"lab":"soc-lab","synthetic":true,"simulation":"attack"}}
+JSON
+}
+
+# Build a JSON registry modification event string
+# Usage: make_registry_event <action> <key_path> <value_name> <value_data> <username> <hostname>
+make_registry_event() {
+    local action="${1:-value_set}"
+    local key_path="${2:-HKCU\\SOFTWARE\\Test}"
+    local value_name="${3:-NewValue}"
+    local value_data="${4:-data}"
+    local username="${5:-unknown}"
+    local hostname="${6:-workstation-01}"
+    local ts
+    ts=$(date -u '+%Y-%m-%dT%H:%M:%S.000Z')
+    local kp="${key_path//\\/\\\\}"
+    local vd="${value_data//\\/\\\\}"
+    vd="${vd//\"/\\\"}"
+
+    cat <<JSON
+{"@timestamp":"${ts}","event":{"category":["registry"],"action":"${action}","outcome":"success","kind":"event","dataset":"soc-lab.registry"},"registry":{"path":"${kp}\\\\${value_name}","key":"${kp}","value":{"name":"${value_name}","data":"${vd}"}},"user":{"name":"${username}"},"host":{"name":"${hostname}","os":{"type":"windows"}},"labels":{"lab":"soc-lab","synthetic":true,"simulation":"attack"}}
+JSON
+}
+
+# Build a JSON DNS query event string
+# Usage: make_dns_event <query_name> <resolved_ip> <client_hostname>
+make_dns_event() {
+    local query="${1:-example.com}"
+    local resolved="${2:-198.51.100.1}"
+    local hostname="${3:-workstation-01}"
+    local ts
+    ts=$(date -u '+%Y-%m-%dT%H:%M:%S.000Z')
+
+    cat <<JSON
+{"@timestamp":"${ts}","event":{"category":["network"],"action":"dns_query","outcome":"success","kind":"event","dataset":"soc-lab.dns"},"dns":{"question":{"name":"${query}","type":"A"},"resolved_ip":["${resolved}"],"response_code":"NOERROR"},"source":{"ip":"$(random_internal_ip)"},"host":{"name":"${hostname}"},"labels":{"lab":"soc-lab","synthetic":true,"simulation":"attack"}}
 JSON
 }
 
