@@ -46,6 +46,11 @@ jobs:
       # macOS: Docker is not pre-installed — use Colima as the runtime.
       # --vm-type qemu: the default VZ (Virtualization.framework) driver
       # crashes on GitHub-hosted runners; QEMU is slower but reliable.
+      #
+      # PATH note: on Apple Silicon runners brew installs qemu into a keg
+      # at $(brew --prefix qemu)/bin which is NOT always symlinked into
+      # $(brew --prefix)/bin. We add the keg bin explicitly so Colima can
+      # find qemu-img before calling `colima start`.
       # -----------------------------------------------------------------------
       - name: Set up Docker via Colima (macOS only)
         if: runner.os == 'macOS'
@@ -57,6 +62,10 @@ jobs:
           mkdir -p ~/.docker/cli-plugins
           ln -sfn "$(brew --prefix)/opt/docker-compose/bin/docker-compose" \
                   ~/.docker/cli-plugins/docker-compose
+
+          # Expose the QEMU keg bin so colima can locate qemu-img
+          export PATH="$(brew --prefix qemu)/bin:$PATH"
+          echo "qemu-img: $(which qemu-img)"
 
           # Start Colima with QEMU — VZ driver fails on GitHub Actions runners
           colima start --cpu 2 --memory 4 --disk 20 --vm-type qemu
