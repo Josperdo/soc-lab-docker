@@ -1,0 +1,10 @@
+# Force Unix line endings for shell scripts and config files
+*.sh        text eol=lf
+*.yml       text eol=lf
+*.yaml      text eol=lf
+*.py        text eol=lf
+*.json      text eol=lf
+*.md        text eol=lf
+*.kql       text eol=lf
+*.spl       text eol=lf
+*.ndjson    text eol=lf

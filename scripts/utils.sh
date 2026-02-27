@@ -45,19 +45,19 @@ fi
 _ts() { date -u '+%Y-%m-%dT%H:%M:%SZ'; }
 
 log_info() {
-    echo -e "${_GREEN}[${_ts}]${_RESET} ${_BOLD}[INFO]${_RESET}  ${SCRIPT_NAME}: $*"
+    echo -e "${_GREEN}[$(_ts)]${_RESET} ${_BOLD}[INFO]${_RESET}  ${SCRIPT_NAME}: $*"
 }
 
 log_warn() {
-    echo -e "${_YELLOW}[${_ts}]${_RESET} ${_BOLD}[WARN]${_RESET}  ${SCRIPT_NAME}: $*" >&2
+    echo -e "${_YELLOW}[$(_ts)]${_RESET} ${_BOLD}[WARN]${_RESET}  ${SCRIPT_NAME}: $*" >&2
 }
 
 log_error() {
-    echo -e "${_RED}[${_ts}]${_RESET} ${_BOLD}[ERROR]${_RESET} ${SCRIPT_NAME}: $*" >&2
+    echo -e "${_RED}[$(_ts)]${_RESET} ${_BOLD}[ERROR]${_RESET} ${SCRIPT_NAME}: $*" >&2
 }
 
 log_step() {
-    echo -e "${_CYAN}[${_ts}]${_RESET} ${_BOLD}[STEP]${_RESET}  ${SCRIPT_NAME}: $*"
+    echo -e "${_CYAN}[$(_ts)]${_RESET} ${_BOLD}[STEP]${_RESET}  ${SCRIPT_NAME}: $*"
 }
 
 # ---------------------------------------------------------------------------
@@ -175,7 +175,7 @@ random_internal_ip() {
 # Sleep with configurable delay (reads ATTACK_STEP_DELAY_MS env var)
 step_delay() {
     local ms="${ATTACK_STEP_DELAY_MS:-500}"
-    sleep "$(echo "scale=3; $ms / 1000" | bc)"
+    sleep "$(awk "BEGIN {printf \"%.3f\", $ms/1000}")"
 }
 
 # ---------------------------------------------------------------------------

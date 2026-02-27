@@ -148,7 +148,7 @@ All configuration is controlled via the `.env` file. Key variables:
 # Where Elasticsearch listens
 ELASTICSEARCH_HOST=elasticsearch
 ELASTICSEARCH_PORT=9200
-ELASTICSEARCH_HEAP_SIZE=512m    # Increase for large datasets
+ELASTICSEARCH_HEAP_SIZE=1g      # Increase to 2g for large datasets or heavy ES|QL queries
 
 # How long to keep data
 DATA_RETENTION_DAYS=7           # Change to 14, 30, etc.
@@ -263,6 +263,20 @@ curl -s "http://localhost:9200/soc-lab-*/_search?size=1"
 
 ### Common Issues & Solutions
 
+#### Issue: "Docker Desktop not running" (Windows)
+
+**Symptom:**
+
+```
+error during connect: open //./pipe/dockerDesktopLinuxEngine: The system cannot find the file specified
+```
+
+**Solution:**
+
+Start Docker Desktop from the Start Menu and wait for it to finish loading (the tray icon stops animating). Then retry your command. To avoid this in future: Docker Desktop → Settings → General → enable **Start Docker Desktop when you sign in**.
+
+---
+
 #### Issue: "Port Already in Use"
 
 **Symptom:**
@@ -277,13 +291,14 @@ ERROR: bind: address already in use
 # Option 1: Change port in .env
 WEB_UI_PORT=8080  # or any available port
 
-# Option 2: Find what's using the port
-lsof -i :5601  # (macOS/Linux)
-netstat -ano | findstr :5601  # (Windows)
+# Option 2: Find what's using the port (macOS/Linux)
+lsof -i :5601
 
-# Option 3: Stop the conflicting service
-# Then start SOC Lab Docker
+# Option 2: Find what's using the port (Windows)
+netstat -ano | findstr :5601
 ```
+
+---
 
 #### Issue: "Elasticsearch Not Responding"
 
@@ -302,10 +317,12 @@ docker-compose logs elasticsearch
 # Restart Elasticsearch
 docker-compose restart elasticsearch
 
-# Wait a few seconds and check status
+# Wait ~30 seconds, then check status
 docker-compose ps elasticsearch
-# Should show "Up (healthy)" after ~10 seconds
+# Should show "Up (healthy)"
 ```
+
+---
 
 #### Issue: "Docker Daemon Not Running"
 
@@ -321,35 +338,60 @@ Cannot connect to Docker daemon
 # macOS
 open -a Docker
 
-# Windows
-# Start Docker Desktop from Start Menu
+# Windows – start Docker Desktop from the Start Menu
 
 # Linux
 sudo systemctl start docker
 ```
 
-#### Issue: "Out of Memory"
+---
 
-**Symptom:**
+#### Issue: Log generator PermissionError / no events being written
+
+**Symptom:** `docker-compose logs log-generator` shows:
 
 ```
-137 exit code (Killed) or OOMKilled
+PermissionError: [Errno 13] Permission denied: '/var/log/soc-lab/soc-lab-events.json'
 ```
+
+**Cause:** The `data/logs/` bind-mount directory was created by root or with wrong permissions.
 
 **Solution:**
 
 ```bash
-# Option 1: Increase Elasticsearch heap (in .env)
-ELASTICSEARCH_HEAP_SIZE=1g  # Depending on available RAM
+# Fix ownership of the log directory
+sudo chown -R $(id -u):$(id -g) data/logs/
 
-# Option 2: Increase Docker Desktop memory allocation
-# Docker Desktop Settings → Resources → Memory (set higher)
-
-# Option 3: Reduce event generation rate (in .env)
-LOG_GENERATION_RATE=5  # Instead of 10
+# Rebuild and restart the generator
+docker-compose up -d --build log-generator
+docker-compose logs --tail=5 log-generator
+# Should now show: "Log writer started"
 ```
 
-#### Issue: "Indices Not Appearing"
+---
+
+#### Issue: Kibana Data View "must match one or more data streams or indices"
+
+**Symptom:** When creating a `soc-lab-*` data view in Kibana, you see an error saying the pattern doesn't match anything.
+
+**Cause:** No data has arrived in Elasticsearch yet — indices don't exist until the first events are indexed.
+
+**Solution:**
+
+```bash
+# Verify events are flowing
+curl http://localhost:9200/_cat/indices?v
+
+# If no soc-lab-* indices, check the generator and filebeat logs
+docker-compose logs --tail=20 log-generator
+docker-compose logs --tail=20 filebeat
+```
+
+Wait 30–60 seconds after the stack comes up for the first events to be indexed, then create the data view.
+
+---
+
+#### Issue: Indices Not Appearing
 
 **Symptom:**
 
@@ -361,22 +403,143 @@ curl http://localhost:9200/_cat/indices?v
 **Solution:**
 
 ```bash
-# 1. Check generator is running
-docker-compose ps  # log-generator should be "Up"
+# 1. Check generator is running and writing logs
+docker-compose ps log-generator      # should be "Up"
+ls data/logs/                        # should have soc-lab-events.json
 
-# 2. Check logs exist on host
-ls data/logs/
-
-# 3. Check filebeat logs
+# 2. Check filebeat is shipping successfully
 docker-compose logs filebeat
-# Look for errors about log file or Elasticsearch connection
+# Look for: "Connection to backoff(elasticsearch(...)) established"
+# Bad sign: "connection refused" or "file not found"
 
-# 4. Force restart filebeat
+# 3. Force restart filebeat
 docker-compose restart filebeat
 
 # Wait 30 seconds, then check again
 curl http://localhost:9200/_cat/indices?v
 ```
+
+---
+
+#### Issue: ES|QL circuit_breaking_exception (query runs out of memory)
+
+**Symptom:**
+
+```
+circuit_breaking_exception - [parent] Data too large...
+which is larger than the limit of [510027366/486.3mb]
+```
+
+**Cause:** Elasticsearch's JVM heap (default 512m) is full. ES|QL aggregations are memory-intensive.
+
+**Solution:**
+
+```bash
+# 1. Increase heap in .env
+ELASTICSEARCH_HEAP_SIZE=1g   # or 2g if you have RAM to spare
+
+# 2. Restart Elasticsearch to apply
+docker-compose restart elasticsearch
+
+# 3. Also narrow the Kibana time range before running large queries
+```
+
+---
+
+#### Issue: ES|QL query parse error on BUCKET or VALUES
+
+**Symptom:**
+
+```
+Couldn't parse Elasticsearch ES|QL query...
+mismatched input '(' expecting {<EOF>, PIPE, COMMA, '.'}
+```
+
+or
+
+```
+Unknown function [VALUES]
+```
+
+**Cause:** Some ES|QL functions were added in later versions. On Kibana 8.11.x:
+- `BUCKET(field, duration)` (2-arg form) → not available until 8.14+
+- `VALUES(field)` → not available until 8.14+
+
+**Solution:** Use the 8.11-compatible alternatives from [brute_force_detection.kql](../detections/authentication/brute_force_detection.kql):
+- Replace `BUCKET(@timestamp, 5 minutes)` with `DATE_TRUNC(5 minutes, @timestamp)` via `EVAL`
+- Replace `VALUES(host.name)` with `COUNT_DISTINCT(host.name)`
+- Always add `| LIMIT 100` at the end to suppress the default-limit warning
+
+---
+
+#### Issue: Shell scripts fail with `_ts: unbound variable` or `bc: not found` (WSL)
+
+**Symptom:**
+
+```
+scripts/utils.sh: line 12: _ts: unbound variable
+```
+
+or
+
+```
+bash: bc: command not found
+```
+
+**Cause:** Scripts were created on Windows and may have CRLF line endings, or WSL is missing the `bc` package.
+
+**Solution:**
+
+```bash
+# Fix CRLF line endings (run from project root in WSL)
+python3 -c "
+import os
+for f in ['scripts/utils.sh','scripts/brute_force_simulation.sh',
+          'scripts/lateral_movement_simulation.sh','scripts/exfiltration_simulation.sh']:
+    open(f,'wb').write(open(f).read().replace('\r\n','\n').encode())
+print('Done')
+"
+
+# bc is not used in current scripts (replaced with awk), but if needed:
+sudo apt-get install -y bc
+```
+
+---
+
+#### Issue: Kibana dashboard import partially fails
+
+**Symptom:** Import reports success but shows "1 row failed" for a visualization. The failed object is usually a visualization referencing `soc-lab-index-pattern`.
+
+**Cause:** Each `.ndjson` file must include the index-pattern definition as its first line. If importing into a fresh Kibana with no existing `soc-lab-index-pattern` object, and a dashboard file is missing that first line, referenced visualizations will fail.
+
+**Solution:** Import the dashboard files in this order (each file is self-contained with the index-pattern included):
+
+1. `event_overview.ndjson`
+2. `authentication_analytics.ndjson`
+3. `alerts_detections.ndjson`
+
+If a conflict warning appears on re-import, choose **Overwrite** to refresh with the correct version.
+
+---
+
+#### Issue: `bash: not found` when running scripts via WSL on Windows
+
+**Symptom:**
+
+```
+wsl bash scripts/brute_force_simulation.sh
+/bin/sh: bash: not found
+```
+
+**Cause:** Running `wsl` without specifying a distro defaults to `docker-desktop`, which is a minimal Alpine-based image with no bash.
+
+**Solution:** Open a proper Ubuntu (or Debian) WSL terminal directly:
+
+1. Search "Ubuntu" in the Windows Start Menu and open it
+2. Navigate to your project: `cd /mnt/c/Users/<YourName>/path/to/soc-lab-docker`
+3. Run: `bash scripts/brute_force_simulation.sh`
+
+To install Ubuntu WSL if not present: `wsl --install -d Ubuntu` in PowerShell (requires restart).
 
 ---
 
@@ -506,28 +669,32 @@ COMPOSE_PROJECT_NAME=soc-lab-team3 WEB_UI_PORT=5603 docker-compose up -d
 ### Stop the Lab (Data Preserved)
 
 ```bash
+# Pause containers — data and volumes stay intact
 docker-compose stop
 
-# Restart later
+# Resume later
 docker-compose start
 ```
 
-### Shutdown & Remove Containers (Data Lost)
+### Shutdown & Remove Containers (Data Preserved)
 
 ```bash
+# Removes containers and network, but named volumes survive
+# Your Elasticsearch data is still there on next `up`
 docker-compose down
-
-# All containers removed, volumes cleared (default)
 ```
 
-### Clean Up Everything (Including Volumes)
+### Clean Up Everything Including Data
 
 ```bash
+# Removes containers, network, AND named volumes (Elasticsearch data gone)
 docker-compose down -v
-
-# Warning: This deletes all data and volumes
-# Use carefully!
 ```
+
+> **Quick reference:**
+> - `stop` / `start` → pause/resume, nothing deleted
+> - `down` → containers gone, **data survives**
+> - `down -v` → containers + data both gone (fresh slate)
 
 ### Full Cleanup (Images Too)
 

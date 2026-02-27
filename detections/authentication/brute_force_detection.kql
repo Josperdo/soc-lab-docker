@@ -123,12 +123,34 @@ failures
 
 // ===========================================================================
 // QUERY 4: Kibana ESQL (ES|QL – Elasticsearch Query Language)
-// Use in: Kibana → Discover → ESQL mode (Kibana 8.11+)
+// Use in: Kibana → Discover → ES|QL mode (toggle in top-left of Discover)
 //
 // Modern pipeline syntax for Elasticsearch. Runs directly in Kibana
 // without needing Lens. Great for ad-hoc investigation.
+//
+// NOTE: BUCKET(field, span) with a 2-arg duration literal requires 8.14+.
+//       Query 4a uses DATE_TRUNC (8.11 compatible).
+//       Query 4b uses BUCKET with 4 args (also 8.11 compatible).
+//       Query 4c is the simple no-bucketing version (works everywhere).
 // ===========================================================================
 
+// --- 4a: DATE_TRUNC (Kibana 8.11+ compatible) ----------------------------
+/*
+FROM soc-lab-*
+| WHERE event.category == "authentication"
+  AND event.outcome == "failure"
+| EVAL time_bucket = DATE_TRUNC(5 minutes, @timestamp)
+| STATS
+    failure_count = COUNT(*),
+    unique_users  = COUNT_DISTINCT(user.name),
+    unique_hosts  = COUNT_DISTINCT(host.name)
+  BY source.ip, time_bucket
+| WHERE failure_count > 10
+| SORT failure_count DESC
+| LIMIT 100
+*/
+
+// --- 4b: Simple aggregation – no time bucket (works in all 8.x versions) -
 /*
 FROM soc-lab-*
 | WHERE event.category == "authentication"
@@ -136,9 +158,26 @@ FROM soc-lab-*
 | STATS
     failure_count = COUNT(*),
     unique_users  = COUNT_DISTINCT(user.name),
-    hosts         = VALUES(host.name)
-  BY source.ip,
-     BUCKET(@timestamp, 5 minutes)
+    unique_hosts  = COUNT_DISTINCT(host.name)
+  BY source.ip
 | WHERE failure_count > 10
 | SORT failure_count DESC
+| LIMIT 100
+*/
+
+// --- 4c: BUCKET with 4 args (8.11 compatible, use for fixed time ranges) -
+// Replace the from/to values with your actual time range strings.
+/*
+FROM soc-lab-*
+| WHERE event.category == "authentication"
+  AND event.outcome == "failure"
+| STATS
+    failure_count = COUNT(*),
+    unique_users  = COUNT_DISTINCT(user.name),
+    unique_hosts  = COUNT_DISTINCT(host.name)
+  BY source.ip,
+     BUCKET(@timestamp, 12, "now-1h", "now")
+| WHERE failure_count > 10
+| SORT failure_count DESC
+| LIMIT 100
 */
