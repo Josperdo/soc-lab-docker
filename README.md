@@ -285,8 +285,7 @@ This project is licensed under the [MIT License](LICENSE). Feel free to fork, mo
 
 ## Authors & Acknowledgments
 
-**Created by:** [Your Name]  
-**Contact:** [Your Email/GitHub]
+**Created by:** John Sperry
 
 **Inspired by:** Blue team tradecraft, detection engineering best practices, and the open-source security community.
 
