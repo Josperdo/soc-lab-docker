@@ -1,0 +1,89 @@
+// ============================================================
+// Detection: Account Lockout Spike (Password Spray Indicator)
+// ============================================================
+// Purpose:    Identifies rapid authentication failures targeting
+//             multiple accounts from a single source IP.
+//
+// MITRE ATT&CK: T1110.001 – Brute Force: Password Guessing
+//               T1110.003 – Brute Force: Password Spraying
+//
+// Required Fields:
+//   event.category     (authentication)
+//   event.outcome      (failure)
+//   source.ip
+//   user.name
+//   host.name
+//
+// Tuning Guidance:
+//   - Adjust failure threshold per environment baseline
+//   - Whitelist known scanners, monitoring tools, and jump boxes
+//   - Combine with Query 3 to detect spray → successful login
+// ============================================================
+
+
+// ─────────────────────────────────────────────────────────────
+// Query 1: Kibana KQL – Basic Failure Filter
+// ─────────────────────────────────────────────────────────────
+// Use in Kibana Discover to explore raw failure events first.
+// Apply time filter in the Kibana UI (e.g., last 15 minutes).
+
+event.category: "authentication" AND event.outcome: "failure"
+
+
+// ─────────────────────────────────────────────────────────────
+// Query 2: Kibana EQL – Spray Detection (5+ failures per IP)
+// ─────────────────────────────────────────────────────────────
+// Sequences 5 consecutive authentication failures from the same
+// source IP within a 10-minute window.
+
+sequence by source.ip with maxspan=10m
+  [authentication where event.outcome == "failure"] with runs=5
+
+
+// ─────────────────────────────────────────────────────────────
+// Query 3: Kibana EQL – Spray then Success (Credential Found)
+// ─────────────────────────────────────────────────────────────
+// Detects the spray pattern completing with a successful login —
+// indicates a valid credential was discovered.
+
+sequence by source.ip with maxspan=15m
+  [authentication where event.outcome == "failure"] with runs=5
+  [authentication where event.outcome == "success"]
+
+
+// ─────────────────────────────────────────────────────────────
+// Query 4: Kibana ES|QL – Failure Spike Aggregation
+// ─────────────────────────────────────────────────────────────
+// Groups authentication failures into 5-minute buckets per
+// source IP. Returns IPs exceeding the failure threshold.
+// Compatible with Kibana 8.11+ (uses DATE_TRUNC, COUNT_DISTINCT).
+
+FROM soc-lab-*
+| WHERE event.category == "authentication" AND event.outcome == "failure"
+| EVAL time_bucket = DATE_TRUNC(5 minutes, @timestamp)
+| STATS failure_count  = COUNT(*),
+        unique_users   = COUNT_DISTINCT(user.name),
+        unique_hosts   = COUNT_DISTINCT(host.name)
+  BY source.ip, time_bucket
+| WHERE failure_count > 5
+| SORT failure_count DESC
+| LIMIT 100
+
+
+// ─────────────────────────────────────────────────────────────
+// Query 5: Azure Sentinel KQL
+// ─────────────────────────────────────────────────────────────
+// For use with the soc-lab custom log table in Microsoft Sentinel.
+// Adjust the table name and field suffixes to match your DCR config.
+
+soc_lab_CL
+| where event_category_s == "authentication" and event_outcome_s == "failure"
+| bin TimeGenerated span=5m
+| summarize failure_count = count(),
+            unique_users  = dcount(user_name_s),
+            target_users  = make_set(user_name_s, 20),
+            target_hosts  = make_set(host_name_s, 10)
+  by source_ip_s, TimeGenerated
+| where failure_count > 5
+| extend attack_type = iff(unique_users > 3, "password_spray", "brute_force")
+| sort by failure_count desc

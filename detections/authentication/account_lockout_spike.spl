@@ -1,0 +1,76 @@
+# ============================================================
+# Detection: Account Lockout Spike (Password Spray Indicator)
+# ============================================================
+# Purpose:    Identifies rapid authentication failures from a
+#             single source IP targeting multiple accounts —
+#             the primary indicator of password spray attacks.
+#
+# MITRE ATT&CK: T1110.001 – Brute Force: Password Guessing
+#               T1110.003 – Brute Force: Password Spraying
+#
+# Required Fields:
+#   event.category     (authentication)
+#   event.outcome      (failure)
+#   source.ip
+#   user.name
+#   host.name
+#   authentication.service
+#
+# Tuning Guidance:
+#   - Lower the failure_count threshold in hardened environments (e.g., 3)
+#   - Whitelist known vulnerability scanners, jump boxes, and monitoring IPs
+#   - Adjust the time window (span=5m) for your authentication volume baseline
+#   - Add `NOT source.ip IN (whitelist)` to suppress known-good sources
+# ============================================================
+
+
+# ─────────────────────────────────────────────────────────────
+# Query 1: Lockout Spike per Source IP
+# ─────────────────────────────────────────────────────────────
+# Detects >5 authentication failures from a single source IP
+# within a 5-minute window. Categorises as brute_force (single
+# target) or password_spray (multiple targets).
+
+index=soc-lab event.category=authentication event.outcome=failure
+| bin _time span=5m
+| stats count         as failure_count
+        dc(user.name) as unique_users
+        values(user.name) as targeted_accounts
+        values(host.name) as targeted_hosts
+        values(authentication.service) as services
+  by source.ip, _time
+| where failure_count > 5
+| eval severity=case(
+    failure_count > 50, "critical",
+    failure_count > 20, "high",
+    failure_count > 10, "medium",
+    true(), "low")
+| eval attack_type=if(unique_users > 3, "password_spray", "brute_force")
+| table _time, source.ip, failure_count, unique_users, targeted_accounts,
+        targeted_hosts, services, severity, attack_type
+| sort -failure_count
+
+
+# ─────────────────────────────────────────────────────────────
+# Query 2: Password Spray Pattern — Many Accounts, One Source
+# ─────────────────────────────────────────────────────────────
+# Identifies a single source IP hitting >5 distinct user accounts
+# within 10 minutes — the classic password spray signature.
+# Unlike brute force, spray keeps failure counts per-account low
+# to avoid per-account lockout thresholds.
+
+index=soc-lab event.category=authentication event.outcome=failure
+| bin _time span=10m
+| stats count         as attempts
+        dc(user.name) as unique_targets
+        values(user.name) as targeted_users
+        dc(host.name) as unique_hosts
+  by source.ip, _time
+| where unique_targets > 5
+| eval spray_intensity=case(
+    unique_targets > 30, "high",
+    unique_targets > 15, "medium",
+    true(), "low")
+| table _time, source.ip, attempts, unique_targets, targeted_users,
+        unique_hosts, spray_intensity
+| sort -unique_targets

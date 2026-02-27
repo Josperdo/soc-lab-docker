@@ -1,0 +1,87 @@
+// ============================================================
+// Detection: Scheduled Task / Cron Job Persistence
+// ============================================================
+// Purpose:    Detects Windows scheduled task and Linux cron job
+//             creation used by attackers to maintain persistence.
+//
+// MITRE ATT&CK: T1053.005 – Scheduled Task/Job: Scheduled Task
+//               T1053.003 – Scheduled Task/Job: Cron
+//
+// Required Fields:
+//   event.category       (process)
+//   process.name
+//   process.parent.name
+//   process.command_line
+//   user.name
+//   host.name
+//
+// Tuning Guidance:
+//   - Whitelist known deployment and update tools
+//   - Alert on creation events outside business hours
+//   - Pay special attention to tasks running encoded PowerShell
+// ============================================================
+
+
+// ─────────────────────────────────────────────────────────────
+// Query 1: Kibana KQL – Scheduled Task Creation
+// ─────────────────────────────────────────────────────────────
+// Detects schtasks.exe or at.exe process creation events.
+
+event.category: "process" AND
+process.name: ("schtasks.exe" OR "at.exe") AND
+process.command_line: ("/create" OR "/sc" OR "/tr")
+
+
+// ─────────────────────────────────────────────────────────────
+// Query 2: Kibana KQL – Cron Modification (Linux)
+// ─────────────────────────────────────────────────────────────
+// Detects crontab modification commands.
+
+event.category: "process" AND
+process.name: "crontab" AND
+process.command_line: ("-e" OR "-r")
+
+
+// ─────────────────────────────────────────────────────────────
+// Query 3: Kibana KQL – Task with LOL Binary Payload
+// ─────────────────────────────────────────────────────────────
+// High-fidelity: scheduled tasks configured to execute
+// living-off-the-land binaries or encoded PowerShell.
+
+event.category: "process" AND
+process.name: "schtasks.exe" AND
+process.command_line: ("*powershell*" OR "*mshta*" OR "*rundll32*"
+                       OR "*certutil*" OR "*wscript*" OR "*-enc*")
+
+
+// ─────────────────────────────────────────────────────────────
+// Query 4: Kibana EQL – Task Created by Suspicious Parent
+// ─────────────────────────────────────────────────────────────
+// Detects schtasks.exe spawned from a scripting engine or shell —
+// indicating the persistence mechanism was set programmatically.
+
+sequence by host.name with maxspan=30s
+  [process where process.name in ("cmd.exe", "powershell.exe",
+                                   "wscript.exe", "cscript.exe",
+                                   "mshta.exe")]
+  [process where process.name == "schtasks.exe"
+             and process.command_line like~ "*/create*"]
+
+
+// ─────────────────────────────────────────────────────────────
+// Query 5: Kibana ES|QL – Persistence Activity by User
+// ─────────────────────────────────────────────────────────────
+// Aggregates scheduled task creation and cron modification events
+// per user and host to identify the most active persistence actors.
+// Compatible with Kibana 8.11+.
+
+FROM soc-lab-*
+| WHERE event.category == "process"
+    AND (process.name == "schtasks.exe"
+      OR process.name == "at.exe"
+      OR process.name == "crontab")
+| STATS creation_count = COUNT(*),
+        unique_hosts   = COUNT_DISTINCT(host.name)
+  BY user.name, process.name
+| SORT creation_count DESC
+| LIMIT 100

@@ -1,0 +1,73 @@
+// ============================================================
+// Detection: WMI Remote Execution (Lateral Movement)
+// ============================================================
+// Purpose:    Detects WMI used for remote code execution by
+//             identifying wmic.exe remote invocations and
+//             WmiPrvSE.exe spawning interactive shells.
+//
+// MITRE ATT&CK: T1047 – Windows Management Instrumentation
+//               T1059.001 – Command and Scripting: PowerShell
+//               T1059.003 – Command and Scripting: Windows Cmd
+//
+// Required Fields:
+//   event.category        (process, network)
+//   process.name
+//   process.parent.name
+//   process.command_line
+//   destination.port      (135 for DCOM)
+//   host.name
+//   user.name
+//
+// Tuning Guidance:
+//   - Whitelist known admin hosts performing legitimate remote management
+//   - Exclude SCCM, monitoring agents, and asset-inventory tools
+//   - In low-noise environments, alert on any WmiPrvSE.exe child process
+// ============================================================
+
+
+// ─────────────────────────────────────────────────────────────
+// Query 1: Kibana KQL – WmiPrvSE.exe Spawning Shells
+// ─────────────────────────────────────────────────────────────
+// WmiPrvSE.exe is the WMI provider host. It spawning cmd.exe or
+// powershell.exe indicates WMI-based code execution.
+
+event.category: "process" AND
+process.parent.name: "WmiPrvSE.exe" AND
+process.name: ("cmd.exe" OR "powershell.exe" OR "wscript.exe" OR "cscript.exe")
+
+
+// ─────────────────────────────────────────────────────────────
+// Query 2: Kibana KQL – Remote wmic.exe Invocation
+// ─────────────────────────────────────────────────────────────
+// Detects wmic.exe with the /node: argument targeting remote systems.
+
+event.category: "process" AND
+process.name: "wmic.exe" AND
+process.command_line: "/node\:*"
+
+
+// ─────────────────────────────────────────────────────────────
+// Query 3: Kibana EQL – DCOM Connection → Process Spawn
+// ─────────────────────────────────────────────────────────────
+// Sequences a network connection to port 135 (DCOM — used by WMI)
+// with a WmiPrvSE.exe child process creation within 1 minute.
+
+sequence by host.name with maxspan=1m
+  [network where destination.port == 135 and network.transport == "tcp"]
+  [process where process.parent.name == "WmiPrvSE.exe"]
+
+
+// ─────────────────────────────────────────────────────────────
+// Query 4: Kibana ES|QL – WMI Shell Spawn Summary
+// ─────────────────────────────────────────────────────────────
+// Counts shell processes spawned by WmiPrvSE.exe per host.
+// Compatible with Kibana 8.11+.
+
+FROM soc-lab-*
+| WHERE event.category == "process"
+    AND process.parent.name == "WmiPrvSE.exe"
+| STATS spawn_count  = COUNT(*),
+        unique_users = COUNT_DISTINCT(user.name)
+  BY host.name, process.name
+| SORT spawn_count DESC
+| LIMIT 100

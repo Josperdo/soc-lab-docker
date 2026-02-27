@@ -1,0 +1,100 @@
+// ============================================================
+// Detection: Large Data Transfer / Exfiltration
+// ============================================================
+// Purpose:    Detects data exfiltration via unusual outbound
+//             network connections and archiving tool usage.
+//
+// MITRE ATT&CK: T1041 – Exfiltration Over C2 Channel
+//               T1048 – Exfiltration Over Alternative Protocol
+//               T1560 – Archive Collected Data
+//
+// Required Fields:
+//   event.category       (network, process)
+//   event.outcome        (success)
+//   destination.port
+//   destination.ip
+//   network.transport
+//   source.ip
+//   host.name
+//   process.name
+//   process.command_line
+//
+// Tuning Guidance:
+//   - Whitelist known backup servers and cloud storage IP ranges
+//   - Exclude RFC1918 private address space from destination checks
+//   - Correlate with process events on the same host for context
+//   - Use the ES|QL query first to baseline normal outbound ports
+// ============================================================
+
+
+// ─────────────────────────────────────────────────────────────
+// Query 1: Kibana KQL – Non-Standard Outbound TCP
+// ─────────────────────────────────────────────────────────────
+// Identifies outbound TCP connections on ports outside normal
+// web, email, and DNS traffic.
+
+event.category: "network" AND
+event.outcome: "success" AND
+network.transport: "tcp" AND
+NOT destination.port: (80 OR 443 OR 53 OR 22 OR 25 OR 143 OR 465 OR 587 OR 993)
+
+
+// ─────────────────────────────────────────────────────────────
+// Query 2: Kibana KQL – Known Exfiltration / C2 Ports
+// ─────────────────────────────────────────────────────────────
+// Flags connections to ports commonly associated with C2 frameworks,
+// RATs, and exfiltration tools.
+
+event.category: "network" AND
+network.transport: "tcp" AND
+destination.port: (4444 OR 4445 OR 8443 OR 31337 OR 1337)
+
+
+// ─────────────────────────────────────────────────────────────
+// Query 3: Kibana KQL – Archiving Tool Execution
+// ─────────────────────────────────────────────────────────────
+// Detects compression and archiving tools frequently used to
+// stage data before exfiltration (T1560).
+
+event.category: "process" AND
+process.name: ("7z.exe" OR "7za.exe" OR "rar.exe" OR "winrar.exe") OR
+(event.category: "process" AND
+ process.name: ("tar" OR "zip") AND
+ process.command_line: ("-c*" OR "-r*"))
+
+
+// ─────────────────────────────────────────────────────────────
+// Query 4: Kibana EQL – Archiving then Outbound Network
+// ─────────────────────────────────────────────────────────────
+// Sequences archiving tool execution followed by an outbound
+// network connection on a non-standard port within 5 minutes.
+// High-fidelity exfiltration preparation indicator.
+
+sequence by host.name with maxspan=5m
+  [process where process.name in ("7z.exe", "7za.exe", "rar.exe", "tar", "zip")]
+  [network where event.outcome == "success"
+             and network.transport == "tcp"
+             and not destination.port in (80, 443, 53, 22)]
+
+
+// ─────────────────────────────────────────────────────────────
+// Query 5: Kibana ES|QL – Top Outbound Destinations by Port
+// ─────────────────────────────────────────────────────────────
+// Aggregates outbound non-standard-port connections to identify
+// the most common external destinations and unusual port activity.
+// Run over a wide time window to build a baseline.
+// Compatible with Kibana 8.11+.
+
+FROM soc-lab-*
+| WHERE event.category == "network"
+    AND event.outcome == "success"
+    AND network.transport == "tcp"
+    AND NOT (destination.port == 80
+          OR destination.port == 443
+          OR destination.port == 53
+          OR destination.port == 22)
+| STATS connection_count  = COUNT(*),
+        unique_hosts      = COUNT_DISTINCT(host.name)
+  BY destination.port, destination.ip
+| SORT connection_count DESC
+| LIMIT 100

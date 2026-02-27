@@ -1,0 +1,86 @@
+// ============================================================
+// Detection: Local Privilege Escalation
+// ============================================================
+// Purpose:    Detects processes gaining SYSTEM/root privileges
+//             through unexpected parent-child relationships and
+//             known escalation tool patterns.
+//
+// MITRE ATT&CK: T1068  – Exploitation for Privilege Escalation
+//               T1134  – Access Token Manipulation
+//               T1548.003 – Sudo and Sudo Caching
+//
+// Required Fields:
+//   event.category          (process, authentication)
+//   process.name
+//   process.parent.name
+//   process.integrity_level
+//   process.command_line
+//   user.name
+//   host.name
+//
+// Tuning Guidance:
+//   - Whitelist services.exe and winlogon.exe as legitimate SYSTEM parents
+//   - On Linux, alert on sudo usage to interactive shells after hours
+//   - Use the ES|QL query to baseline normal parent→child pairs first
+// ============================================================
+
+
+// ─────────────────────────────────────────────────────────────
+// Query 1: Kibana KQL – Unexpected SYSTEM-Integrity Process
+// ─────────────────────────────────────────────────────────────
+// Processes at SYSTEM integrity level from non-system parents.
+
+event.category: "process" AND
+process.integrity_level: "System" AND
+NOT process.parent.name: ("services.exe" OR "winlogon.exe" OR "lsass.exe")
+
+
+// ─────────────────────────────────────────────────────────────
+// Query 2: Kibana KQL – Linux sudo Shell Escalation
+// ─────────────────────────────────────────────────────────────
+// Detects sudo commands that invoke interactive shells.
+
+event.category: "authentication" AND
+event.action: "sudo" AND
+process.command_line: ("*sudo su*" OR "*sudo -s*" OR "*sudo bash*")
+
+
+// ─────────────────────────────────────────────────────────────
+// Query 3: Kibana KQL – Token Elevation Tools
+// ─────────────────────────────────────────────────────────────
+// Detects explicit elevation via runas.exe or psexec -s.
+
+event.category: "process" AND
+process.name: ("runas.exe" OR "psexec.exe") AND
+process.command_line: "*-s*"
+
+
+// ─────────────────────────────────────────────────────────────
+// Query 4: Kibana EQL – Low → High Integrity Transition
+// ─────────────────────────────────────────────────────────────
+// Detects a low or medium integrity process on a host followed
+// within 30 seconds by a System integrity process — indicating
+// a successful local privilege escalation chain.
+
+sequence by host.name with maxspan=30s
+  [process where process.integrity_level in ("Low", "Medium")]
+  [process where process.integrity_level == "System"
+             and process.parent.name != "services.exe"
+             and process.parent.name != "winlogon.exe"]
+
+
+// ─────────────────────────────────────────────────────────────
+// Query 5: Kibana ES|QL – SYSTEM Process Parent-Child Baseline
+// ─────────────────────────────────────────────────────────────
+// Aggregates SYSTEM-integrity parent→child pairs. Run this over
+// a quiet period to establish what's normal before alerting.
+// Compatible with Kibana 8.11+.
+
+FROM soc-lab-*
+| WHERE event.category == "process"
+    AND process.integrity_level == "System"
+| STATS occurrence_count = COUNT(*),
+        unique_hosts     = COUNT_DISTINCT(host.name)
+  BY process.parent.name, process.name
+| SORT occurrence_count DESC
+| LIMIT 100

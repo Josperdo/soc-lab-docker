@@ -1,0 +1,110 @@
+# ============================================================
+# Detection: Local Privilege Escalation
+# ============================================================
+# Purpose:    Detects processes gaining elevated privileges
+#             (SYSTEM on Windows, root on Linux) through
+#             unexpected parent-child process relationships
+#             and known escalation command patterns.
+#
+# MITRE ATT&CK: T1068  – Exploitation for Privilege Escalation
+#               T1134  – Access Token Manipulation
+#               T1548.003 – Sudo and Sudo Caching
+#               T1078  – Valid Accounts (privilege misuse)
+#
+# Required Fields:
+#   event.category          (process, authentication)
+#   event.action            (process_started, sudo)
+#   process.name
+#   process.parent.name
+#   process.integrity_level
+#   process.command_line
+#   user.name
+#   host.name
+#
+# Tuning Guidance:
+#   - Whitelist services.exe and winlogon.exe as legitimate SYSTEM parents
+#   - On Linux, alert on sudo usage outside business hours or to unusual cmds
+#   - Combine with authentication events to detect token manipulation chains
+#   - Review the parent-child table monthly to establish a normal baseline
+# ============================================================
+
+
+# ─────────────────────────────────────────────────────────────
+# Query 1: Unexpected SYSTEM-Integrity Process
+# ─────────────────────────────────────────────────────────────
+# Detects processes running at SYSTEM integrity level spawned by
+# a parent that is not a known legitimate system service.
+# Legitimate SYSTEM parents: services.exe, winlogon.exe, lsass.exe.
+
+index=soc-lab event.category=process process.integrity_level=System
+  NOT (process.parent.name=services.exe OR
+       process.parent.name=winlogon.exe OR
+       process.parent.name=lsass.exe)
+| stats count         as occurrence_count
+        values(process.command_line) as commands
+        dc(host.name) as affected_hosts
+        values(user.name) as users
+  by process.name, process.parent.name
+| eval severity=case(
+    process.name="cmd.exe" OR process.name="powershell.exe", "critical",
+    process.name="net.exe" OR process.name="whoami.exe",    "high",
+    true(), "medium")
+| table process.parent.name, process.name, occurrence_count,
+        affected_hosts, commands, users, severity
+| sort -occurrence_count
+
+
+# ─────────────────────────────────────────────────────────────
+# Query 2: Linux Privilege Escalation via sudo
+# ─────────────────────────────────────────────────────────────
+# Detects high-risk sudo usage patterns: full shell escalation
+# (sudo su -, sudo -s), and commands that invoke interactive shells.
+
+index=soc-lab event.category=authentication event.action=sudo
+  (process.command_line="*sudo su*" OR
+   process.command_line="*sudo -s*" OR
+   process.command_line="*sudo bash*" OR
+   process.command_line="*sudo sh*")
+| stats count         as escalation_count
+        values(process.command_line) as commands
+        dc(host.name) as affected_hosts
+  by user.name
+| eval risk=case(
+    escalation_count > 10, "high",
+    escalation_count > 3, "medium",
+    true(), "low")
+| table user.name, escalation_count, commands, affected_hosts, risk
+| sort -escalation_count
+
+
+# ─────────────────────────────────────────────────────────────
+# Query 3: runas / psexec -s Token Elevation (Windows)
+# ─────────────────────────────────────────────────────────────
+# Detects explicit token elevation via runas.exe or psexec -s,
+# both used to acquire SYSTEM-level tokens interactively.
+
+index=soc-lab event.category=process
+  (process.name=runas.exe OR
+   (process.name=psexec.exe AND process.command_line="*-s*"))
+| stats count         as attempt_count
+        values(process.command_line) as commands
+        values(host.name) as hosts
+  by user.name, process.name
+| table user.name, process.name, attempt_count, commands, hosts
+| sort -attempt_count
+
+
+# ─────────────────────────────────────────────────────────────
+# Query 4: Privilege Escalation Timeline
+# ─────────────────────────────────────────────────────────────
+# Produces a time-ordered list of all escalation-related events
+# for a specific host — useful during incident investigation.
+# Replace <hostname> with the target host value.
+
+index=soc-lab host.name=<hostname>
+  (process.integrity_level=System OR
+   event.action=sudo OR
+   process.name=runas.exe)
+| table _time, user.name, process.name, process.parent.name,
+        process.integrity_level, process.command_line
+| sort _time

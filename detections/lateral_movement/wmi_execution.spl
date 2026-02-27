@@ -1,0 +1,86 @@
+# ============================================================
+# Detection: WMI Remote Execution (Lateral Movement)
+# ============================================================
+# Purpose:    Detects Windows Management Instrumentation (WMI)
+#             used for remote code execution and lateral movement
+#             by identifying wmic.exe remote invocations and
+#             WmiPrvSE.exe spawning interactive shells.
+#
+# MITRE ATT&CK: T1047 – Windows Management Instrumentation
+#               T1021  – Remote Services
+#               T1059.001 – Command and Scripting: PowerShell
+#               T1059.003 – Command and Scripting: Windows Cmd
+#
+# Required Fields:
+#   event.category        (process)
+#   event.action          (process_started)
+#   process.name
+#   process.parent.name
+#   process.command_line
+#   user.name
+#   host.name
+#   destination.port      (135 for DCOM/WMI)
+#
+# Tuning Guidance:
+#   - Whitelist legitimate admin scripts using wmic.exe /node:
+#   - Exclude known SCCM, monitoring, and asset-inventory hosts
+#   - Correlate WmiPrvSE.exe child processes with network events
+#     on port 135 (DCOM) or 49152-65535 (RPC dynamic range)
+#   - Combine Queries 1 and 2 with a subsearch for full coverage
+# ============================================================
+
+
+# ─────────────────────────────────────────────────────────────
+# Query 1: Remote wmic.exe Invocation
+# ─────────────────────────────────────────────────────────────
+# Detects wmic.exe used with the /node: flag, which specifies a
+# remote target — the primary syntax for WMI lateral movement.
+
+index=soc-lab event.category=process process.name=wmic.exe
+| search process.command_line="*/node:*"
+| stats count         as execution_count
+        values(process.command_line) as commands
+        values(host.name) as source_hosts
+        values(user.name) as users
+  by source.ip
+| table source.ip, execution_count, commands, source_hosts, users
+| sort -execution_count
+
+
+# ─────────────────────────────────────────────────────────────
+# Query 2: WmiPrvSE.exe Spawning Interactive Shells
+# ─────────────────────────────────────────────────────────────
+# WmiPrvSE.exe (the WMI provider host) spawning cmd.exe or
+# powershell.exe is a classic indicator of WMI-based execution.
+# Legitimate WMI providers do not typically spawn interactive shells.
+
+index=soc-lab event.category=process
+  (process.name=cmd.exe OR process.name=powershell.exe)
+  process.parent.name=WmiPrvSE.exe
+| stats count         as spawn_count
+        values(process.command_line) as commands
+        dc(host.name) as affected_hosts
+        values(user.name) as users
+  by process.parent.name, process.name
+| eval severity=if(process.name=="powershell.exe", "high", "medium")
+| table process.parent.name, process.name, spawn_count,
+        affected_hosts, commands, users, severity
+| sort -spawn_count
+
+
+# ─────────────────────────────────────────────────────────────
+# Query 3: WMI Execution Chain Correlation
+# ─────────────────────────────────────────────────────────────
+# Correlates network traffic to port 135 (DCOM) with subsequent
+# WMI-spawned process creation within a 2-minute window.
+# Provides high-confidence evidence of remote WMI execution.
+
+index=soc-lab event.category=network destination.port=135
+| table _time, source.ip, destination.ip, host.name
+| join type=inner host.name
+    [search index=soc-lab event.category=process process.parent.name=WmiPrvSE.exe
+     | table _time, host.name, process.name, process.command_line, user.name]
+| where abs(_time - _time) < 120
+| table _time, source.ip, destination.ip, host.name,
+        process.name, process.command_line, user.name
+| sort -_time

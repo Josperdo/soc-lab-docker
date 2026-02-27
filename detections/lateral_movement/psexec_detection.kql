@@ -1,0 +1,92 @@
+// ============================================================
+// Detection: PsExec Remote Execution (Lateral Movement)
+// ============================================================
+// Purpose:    Detects PsExec-style remote code execution by
+//             identifying PSEXESVC.exe process creation and
+//             correlated SMB + authentication event chains.
+//
+// MITRE ATT&CK: T1021.002 – Remote Services: SMB/Windows Admin Shares
+//               T1570     – Lateral Tool Transfer
+//               T1543.003 – Create or Modify System Process: Windows Service
+//               T1059.003 – Command and Scripting Interpreter: Windows Cmd
+//
+// Required Fields:
+//   event.category       (process, network, authentication)
+//   event.action         (process_started, network_flow, logon)
+//   event.outcome        (success)
+//   process.name
+//   process.parent.name
+//   process.integrity_level
+//   process.command_line
+//   source.ip
+//   destination.port     (445 for SMB)
+//   host.name
+//   user.name
+//
+// Tuning Guidance:
+//   - Whitelist known admin hosts using PSEXESVC.exe for legitimate tasks
+//   - Reduce false positives by adding `NOT host.name IN (admin_servers)`
+//   - Alert only on SYSTEM-integrity cmd.exe from non-system parents
+//   - Correlate with authentication events to confirm remote origin
+// ============================================================
+
+
+// ─────────────────────────────────────────────────────────────
+// Query 1: Kibana KQL – PSEXESVC Process Presence
+// ─────────────────────────────────────────────────────────────
+// Baseline filter: any PSEXESVC.exe process creation event.
+// Use in Discover to identify scope before building detections.
+
+event.category: "process" AND process.name: "PSEXESVC.exe"
+
+
+// ─────────────────────────────────────────────────────────────
+// Query 2: Kibana KQL – Remote cmd.exe with SYSTEM Integrity
+// ─────────────────────────────────────────────────────────────
+// Detects cmd.exe spawned at SYSTEM integrity level from a
+// PsExec service parent — the execution payload pattern.
+
+event.category: "process" AND
+process.name: "cmd.exe" AND
+process.parent.name: "PSEXESVC.exe" AND
+process.integrity_level: "System"
+
+
+// ─────────────────────────────────────────────────────────────
+// Query 3: Kibana EQL – Auth → PsExec Process Sequence
+// ─────────────────────────────────────────────────────────────
+// Correlates a successful network authentication event with
+// PSEXESVC.exe process creation on the same host within 2 min.
+// This confirms the remote execution chain end-to-end.
+
+sequence by host.name with maxspan=2m
+  [authentication where event.outcome == "success" and event.action == "logon"]
+  [process where process.name == "PSEXESVC.exe"]
+
+
+// ─────────────────────────────────────────────────────────────
+// Query 4: Kibana EQL – Full Lateral Movement Chain
+// ─────────────────────────────────────────────────────────────
+// Full three-step chain: SMB connection → PSEXESVC spawn → cmd.exe
+// This sequence provides the highest-fidelity PsExec signal.
+
+sequence by host.name with maxspan=5m
+  [network where destination.port == 445 and network.transport == "tcp"]
+  [process where process.name == "PSEXESVC.exe"]
+  [process where process.name == "cmd.exe" and process.integrity_level == "System"]
+
+
+// ─────────────────────────────────────────────────────────────
+// Query 5: Kibana ES|QL – PsExec Activity Summary
+// ─────────────────────────────────────────────────────────────
+// Aggregates PSEXESVC.exe events by host and user to identify
+// the most targeted systems and initiating accounts.
+// Compatible with Kibana 8.11+.
+
+FROM soc-lab-*
+| WHERE event.category == "process" AND process.name == "PSEXESVC.exe"
+| STATS event_count    = COUNT(*),
+        unique_users   = COUNT_DISTINCT(user.name)
+  BY host.name, user.name
+| SORT event_count DESC
+| LIMIT 100

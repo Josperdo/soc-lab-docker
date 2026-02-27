@@ -1,0 +1,108 @@
+# ============================================================
+# Detection: Large Data Transfer / Exfiltration
+# ============================================================
+# Purpose:    Detects potential data exfiltration by identifying
+#             high-volume outbound network transfers on unusual
+#             ports and archiving tool usage correlated with
+#             outbound network activity.
+#
+# MITRE ATT&CK: T1041 – Exfiltration Over C2 Channel
+#               T1048 – Exfiltration Over Alternative Protocol
+#               T1560 – Archive Collected Data
+#               T1071.001 – Application Layer Protocol: Web Protocols
+#
+# Required Fields:
+#   event.category       (network, process)
+#   event.action         (network_flow, process_started)
+#   event.outcome        (success)
+#   destination.port
+#   destination.ip
+#   network.transport
+#   source.ip
+#   host.name
+#   process.name
+#   process.command_line
+#
+# Tuning Guidance:
+#   - Whitelist known backup servers and legitimate cloud storage IPs
+#   - Exclude internal IP ranges from destination.ip checks
+#   - Correlate archiving tool events with network events on same host
+#   - Build a baseline of normal outbound port patterns before alerting
+#   - The absence of bytes_out field in this lab is normal — use event
+#     count as a proxy for volume (many small transfers = same risk)
+# ============================================================
+
+
+# ─────────────────────────────────────────────────────────────
+# Query 1: Outbound Transfers on Non-Standard Ports
+# ─────────────────────────────────────────────────────────────
+# Identifies outbound TCP connections to unusual ports that
+# are not part of normal web/email/DNS traffic patterns.
+# Attacker C2 channels often use unusual ports to blend in or
+# bypass default egress filtering policies.
+
+index=soc-lab event.category=network event.outcome=success
+  network.transport=tcp
+  NOT (destination.port=80 OR destination.port=443 OR
+       destination.port=53 OR destination.port=22 OR
+       destination.port=25 OR destination.port=143 OR
+       destination.port=465 OR destination.port=587 OR
+       destination.port=993 OR destination.port=995)
+  NOT (destination.ip="10.*" OR destination.ip="192.168.*" OR
+       destination.ip="172.16.*" OR destination.ip="172.17.*" OR
+       destination.ip="172.18.*" OR destination.ip="172.19.*" OR
+       destination.ip="172.20.*")
+| stats count         as connection_count
+        dc(destination.ip) as unique_destinations
+        values(destination.port) as ports
+        values(destination.ip) as dest_ips
+  by source.ip, host.name
+| where connection_count > 10
+| eval severity=case(
+    connection_count > 100 OR unique_destinations > 20, "high",
+    connection_count > 30 OR unique_destinations > 10,  "medium",
+    true(), "low")
+| table host.name, source.ip, connection_count, unique_destinations,
+        ports, dest_ips, severity
+| sort -connection_count
+
+
+# ─────────────────────────────────────────────────────────────
+# Query 2: Known Exfiltration Port Activity
+# ─────────────────────────────────────────────────────────────
+# Flags traffic to ports commonly used by exfiltration tools,
+# C2 frameworks, and remote access trojans.
+
+index=soc-lab event.category=network event.outcome=success network.transport=tcp
+  (destination.port=4444 OR destination.port=4445 OR
+   destination.port=8443 OR destination.port=8080 OR
+   destination.port=31337 OR destination.port=1337)
+| stats count         as connection_count
+        values(destination.ip) as destinations
+        dc(host.name) as affected_hosts
+  by destination.port
+| table destination.port, connection_count, destinations, affected_hosts
+| sort -connection_count
+
+
+# ─────────────────────────────────────────────────────────────
+# Query 3: Archive Tool + Outbound Network Correlation
+# ─────────────────────────────────────────────────────────────
+# Correlates archiving/compression tool execution (7z, rar, tar,
+# zip) with subsequent outbound network connections on the same
+# host within a 5-minute window — a strong exfiltration signal.
+
+index=soc-lab event.category=process
+  (process.name="7z.exe" OR process.name="7za.exe" OR
+   process.name="rar.exe" OR process.name="winrar.exe" OR
+   (process.name="tar" AND process.command_line="*-c*") OR
+   (process.name="zip" AND process.command_line="*-r*"))
+| table _time, host.name, user.name, process.name, process.command_line
+| join type=inner host.name
+    [search index=soc-lab event.category=network event.outcome=success
+            NOT (destination.port=80 OR destination.port=443)
+     | table _time, host.name, destination.ip, destination.port]
+| where abs(_time - _time) < 300
+| table _time, host.name, user.name, process.name,
+        process.command_line, destination.ip, destination.port
+| sort -_time

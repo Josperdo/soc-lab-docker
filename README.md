@@ -1,6 +1,6 @@
 # SOC Lab Docker
 
-[![CI](https://github.com/yourusername/soc-lab-docker/actions/workflows/ci.yml/badge.svg)](https://github.com/Josperdo/soc-lab-docker/actions/workflows/ci.yml)
+[![CI](https://github.com/Josperdo/soc-lab-docker/actions/workflows/ci.yml/badge.svg)](https://github.com/Josperdo/soc-lab-docker/actions/workflows/ci.yml)
 
 **A forkable, Docker-based detection engineering lab for learning blue team skills**
 
@@ -98,10 +98,12 @@ Attack Simulation Scripts ──► Event Generator ──► Logs ──► Det
 
 ### Prerequisites
 
+**Supported platforms:** Linux and Windows (via WSL2 + Docker Desktop). macOS has not been verified in CI and is not officially supported.
+
 - Docker & Docker Compose (v20+)
 - 4GB+ RAM available
 - Git
-- Bash or PowerShell terminal
+- Bash (Linux / WSL2) or PowerShell terminal (Windows)
 
 ### Quick Start
 

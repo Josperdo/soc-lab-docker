@@ -8,47 +8,54 @@ This directory contains example detection queries, rules, and best practices for
 
 ## Directory Structure
 
-Queries are organized by attack category:
+Queries are organized by MITRE ATT&CK tactic:
 
 ```
 detections/
 ├── authentication/
-│   ├── README.md
-│   ├── brute_force_detection.spl        (Splunk Query Language)
-│   ├── brute_force_detection.kql        (Kusto Query Language / Azure Sentinel)
-│   ├── brute_force_detection.promql     (Prometheus)
-│   └── notes.md                         (Tuning, baseline, annotations)
+│   ├── brute_force_detection.spl        Brute force & credential stuffing (T1110)
+│   ├── brute_force_detection.kql
+│   ├── account_lockout_spike.spl        Password spray via lockout spike (T1110.001/003)
+│   └── account_lockout_spike.kql
 │
 ├── lateral_movement/
-│   ├── README.md
-│   ├── psexec_detection.spl
+│   ├── psexec_detection.spl             PsExec remote execution (T1021.002)
 │   ├── psexec_detection.kql
-│   └── notes.md
-│
-├── exfiltration/
-│   ├── README.md
-│   ├── large_data_transfer.spl
-│   ├── dns_exfiltration.spl
-│   └── notes.md
+│   ├── wmi_execution.spl                WMI-based remote execution (T1047)
+│   └── wmi_execution.kql
 │
 ├── privilege_escalation/
-│   └── (similar structure)
+│   ├── local_privilege_escalation.spl   SYSTEM/root escalation (T1068, T1134)
+│   └── local_privilege_escalation.kql
 │
-└── templates/
-    ├── alert_template.spl              (Template for writing new SPL queries)
-    ├── baseline_detection.spl          (Template for baseline comparison)
-    └── correlation_template.spl        (Template for multi-source correlation)
+├── persistence/
+│   ├── scheduled_task_creation.spl      Scheduled tasks & cron persistence (T1053)
+│   └── scheduled_task_creation.kql
+│
+└── exfiltration/
+    ├── large_data_transfer.spl          Non-standard outbound transfers (T1041, T1048)
+    └── large_data_transfer.kql
 ```
+
+### MITRE ATT&CK Coverage
+
+| Category | File | Techniques |
+|---|---|---|
+| Authentication | `brute_force_detection.*` | T1110, T1110.001, T1110.003, T1078 |
+| Authentication | `account_lockout_spike.*` | T1110.001, T1110.003 |
+| Lateral Movement | `psexec_detection.*` | T1021.002, T1570, T1543.003, T1059.003 |
+| Lateral Movement | `wmi_execution.*` | T1047, T1059.001, T1059.003 |
+| Privilege Escalation | `local_privilege_escalation.*` | T1068, T1134, T1548.003 |
+| Persistence | `scheduled_task_creation.*` | T1053.005, T1053.003 |
+| Exfiltration | `large_data_transfer.*` | T1041, T1048, T1560 |
 
 ## Capabilities
 
 ✅ **Multi-format query examples**
 
 - **SPL** (Splunk Query Language)
-- **KQL** (Kusto Query Language / Azure Sentinel)
-- **PromQL** (Prometheus / time-series metrics)
-- **Lambda** (AWS CloudWatch Logs Insights)
-- **BigQuery SQL** (Google Cloud)
+- **KQL** (Kibana KQL filter syntax + EQL sequence detection + ES|QL aggregation)
+- **Azure Sentinel KQL** (where applicable)
 
 ✅ **Complete documentation**
 

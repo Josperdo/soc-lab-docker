@@ -1,0 +1,91 @@
+# ============================================================
+# Detection: Scheduled Task / Cron Job Persistence
+# ============================================================
+# Purpose:    Detects the creation of scheduled tasks (Windows)
+#             and cron jobs (Linux) used by attackers to maintain
+#             persistent access after initial compromise.
+#
+# MITRE ATT&CK: T1053.005 – Scheduled Task/Job: Scheduled Task
+#               T1053.003 – Scheduled Task/Job: Cron
+#
+# Required Fields:
+#   event.category       (process)
+#   event.action         (process_started)
+#   process.name
+#   process.parent.name
+#   process.command_line
+#   user.name
+#   host.name
+#
+# Tuning Guidance:
+#   - Whitelist known software deployment and patching schedules
+#   - Baseline legitimate schtasks.exe usage from IT admin accounts
+#   - Alert on creation events outside business hours for higher fidelity
+#   - Combine with network events to detect tasks that beacon outbound
+#   - Review tasks created by non-admin users with elevated privilege flags
+# ============================================================
+
+
+# ─────────────────────────────────────────────────────────────
+# Query 1: Scheduled Task Creation (Windows)
+# ─────────────────────────────────────────────────────────────
+# Detects schtasks.exe and at.exe invocations with creation
+# flags (/create or /sc) which establish new scheduled tasks.
+
+index=soc-lab event.category=process
+  (process.name=schtasks.exe OR process.name=at.exe)
+  (process.command_line="*/create*" OR
+   process.command_line="*/sc*" OR
+   process.command_line="*/tr*")
+| stats count         as creation_count
+        values(process.command_line) as commands
+        values(process.parent.name) as parent_processes
+        dc(host.name) as affected_hosts
+  by user.name, process.name
+| eval suspicious=case(
+    process.parent.name="cmd.exe" OR
+    process.parent.name="powershell.exe" OR
+    process.parent.name="wscript.exe", "yes",
+    true(), "no")
+| table user.name, process.name, creation_count, commands,
+        parent_processes, affected_hosts, suspicious
+| sort -creation_count
+
+
+# ─────────────────────────────────────────────────────────────
+# Query 2: Suspicious Task Command Patterns
+# ─────────────────────────────────────────────────────────────
+# Detects scheduled tasks configured to run high-risk commands:
+# PowerShell with download/exec flags, encoded commands, or
+# known living-off-the-land (LOL) binaries.
+
+index=soc-lab event.category=process process.name=schtasks.exe
+  (process.command_line="*powershell*" OR
+   process.command_line="*cmd /c*" OR
+   process.command_line="*certutil*" OR
+   process.command_line="*mshta*" OR
+   process.command_line="*rundll32*" OR
+   process.command_line="*wscript*" OR
+   process.command_line="*cscript*" OR
+   process.command_line="*-enc*" OR
+   process.command_line="*-EncodedCommand*")
+| table _time, user.name, host.name, process.command_line, process.parent.name
+| sort -_time
+
+
+# ─────────────────────────────────────────────────────────────
+# Query 3: Linux Cron Job Modification
+# ─────────────────────────────────────────────────────────────
+# Detects crontab invocations with the -e (edit) flag and
+# direct cron file modifications using shells or editors.
+
+index=soc-lab event.category=process
+  (process.name=crontab OR
+   (process.command_line="*/cron*" AND
+    (process.command_line="*-e*" OR process.command_line="*-r*")))
+| stats count         as modification_count
+        values(process.command_line) as commands
+        values(host.name) as hosts
+  by user.name
+| table user.name, modification_count, commands, hosts
+| sort -modification_count
