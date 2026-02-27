@@ -1,78 +1,128 @@
 # ============================================================================
-# SOC Lab Docker – Docker Compose Configuration
+# SOC Lab Docker – Full Stack Configuration
 # ============================================================================
 #
-# This is a placeholder file. Replace with actual service definitions.
+# Services:
+#   elasticsearch  – Data store and search engine
+#   kibana         – Web UI for querying and visualization
+#   filebeat       – Log shipper (picks up generator output → Elasticsearch)
+#   log-generator  – Synthetic event generator (writes JSON logs to volume)
 #
-# Expected services (Phase 1 MVP):
-# - elasticsearch      (or alternative data store: ClickHouse, Loki, etc.)
-# - log-aggregator     (Filebeat, Logstash, or Fluentd)
-# - log-generator      (Python/Bash script container)
-# - web-ui             (Kibana, Grafana, or custom dashboard)
+# Usage:
+#   cp .env.example .env
+#   docker-compose up -d
+#   Open http://localhost:5601
 #
-# To complete this configuration:
-# 1. Define each service with image, ports, environment, volumes
-# 2. Set up networks for inter-service communication
-# 3. Configure health checks for service readiness
-# 4. Add volume definitions for persistence
-# 5. Load environment variables from .env
-#
-# Example structure:
-# ---
-# version: '3.8'
-#
-# services:
-#   elasticsearch:
-#     image: docker.elastic.co/elasticsearch/elasticsearch:8.x
-#     environment:
-#       - discovery.type=single-node
-#       - xpack.security.enabled=false
-#     ports:
-#       - "${ELASTICSEARCH_PORT}:9200"
-#     volumes:
-#       - elasticsearch-data:/usr/share/elasticsearch/data
-#     networks:
-#       - soc-lab-network
-#
-#   log-aggregator:
-#     image: docker.elastic.co/beats/filebeat:8.x
-#     volumes:
-#       - ./log-aggregator/filebeat.yml:/usr/share/filebeat/filebeat.yml
-#       - ./data/logs:/var/log/soc-lab:ro
-#     networks:
-#       - soc-lab-network
-#     depends_on:
-#       - elasticsearch
-#
-#   log-generator:
-#     build: ./generator
-#     environment:
-#       - LOG_OUTPUT_DIR=/var/log/soc-lab
-#       - EVENT_RATE=${LOG_GENERATION_RATE}
-#     volumes:
-#       - ./data/logs:/var/log/soc-lab
-#     networks:
-#       - soc-lab-network
-#
-#   web-ui:
-#     image: docker.elastic.co/kibana/kibana:8.x
-#     ports:
-#       - "${WEB_UI_PORT}:5601"
-#     environment:
-#       - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
-#     networks:
-#       - soc-lab-network
-#     depends_on:
-#       - elasticsearch
-#
-# volumes:
-#   elasticsearch-data:
-#
-# networks:
-#   soc-lab-network:
-#     driver: bridge
-# ---
-#
-# See docs/SETUP.md for detailed instructions on configuring services.
-# See docs/ARCHITECTURE.md for component descriptions and data flow.
-#
+# See docs/SETUP.md for detailed instructions.
+# ============================================================================
+
+services:
+
+  # --------------------------------------------------------------------------
+  # Elasticsearch – Single-node data store
+  # --------------------------------------------------------------------------
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:${ELASTIC_VERSION:-8.11.1}
+    container_name: soc-lab-elasticsearch
+    environment:
+      - discovery.type=single-node
+      - cluster.name=${ELASTICSEARCH_CLUSTER_NAME:-soc-lab-cluster}
+      - ES_JAVA_OPTS=-Xms${ELASTICSEARCH_HEAP_SIZE:-512m} -Xmx${ELASTICSEARCH_HEAP_SIZE:-512m}
+      # Security disabled for lab/development use only
+      - xpack.security.enabled=false
+      - xpack.security.enrollment.enabled=false
+      - xpack.security.http.ssl.enabled=false
+      - xpack.security.transport.ssl.enabled=false
+    ports:
+      - "${ELASTICSEARCH_PORT:-9200}:9200"
+    volumes:
+      - elasticsearch-data:/usr/share/elasticsearch/data
+    networks:
+      - soc-lab-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:9200/_cluster/health | grep -qv '\"status\":\"red\"'"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+    restart: unless-stopped
+
+  # --------------------------------------------------------------------------
+  # Kibana – Web UI (Query, Discover, Dashboards)
+  # --------------------------------------------------------------------------
+  kibana:
+    image: docker.elastic.co/kibana/kibana:${ELASTIC_VERSION:-8.11.1}
+    container_name: soc-lab-kibana
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+      - SERVER_HOST=${WEB_UI_HOST:-0.0.0.0}
+      - SERVER_NAME=soc-lab-kibana
+      - TELEMETRY_ENABLED=false
+      - TELEMETRY_OPTIN=false
+    ports:
+      - "${WEB_UI_PORT:-5601}:5601"
+    networks:
+      - soc-lab-network
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:5601/api/status | grep -q '\"level\":\"available\"'"]
+      interval: 20s
+      timeout: 10s
+      retries: 10
+      start_period: 90s
+    restart: unless-stopped
+
+  # --------------------------------------------------------------------------
+  # Filebeat – Ships JSON logs from the shared volume to Elasticsearch
+  # --------------------------------------------------------------------------
+  filebeat:
+    image: docker.elastic.co/beats/filebeat:${ELASTIC_VERSION:-8.11.1}
+    container_name: soc-lab-filebeat
+    user: root
+    command: filebeat -e -strict.perms=false
+    volumes:
+      - ./log-aggregator/filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
+      - ./data/logs:/var/log/soc-lab:ro
+    networks:
+      - soc-lab-network
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # --------------------------------------------------------------------------
+  # Log Generator – Synthetic event producer
+  # --------------------------------------------------------------------------
+  log-generator:
+    build:
+      context: ./generator
+      dockerfile: Dockerfile
+    container_name: soc-lab-log-generator
+    environment:
+      - LOG_OUTPUT_DIR=/var/log/soc-lab
+      - EVENT_RATE=${LOG_GENERATION_RATE:-10}
+      - EVENT_TYPES=${EVENT_TYPES:-authentication,web_traffic,process_execution,network,security_alerts}
+      - SYNTHETIC_USER_COUNT=${SYNTHETIC_USER_COUNT:-50}
+      - SYNTHETIC_HOST_COUNT=${SYNTHETIC_HOST_COUNT:-20}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+    volumes:
+      - ./data/logs:/var/log/soc-lab
+    networks:
+      - soc-lab-network
+    restart: unless-stopped
+
+# ============================================================================
+# Volumes
+# ============================================================================
+volumes:
+  elasticsearch-data:
+    driver: local
+
+# ============================================================================
+# Networks
+# ============================================================================
+networks:
+  soc-lab-network:
+    driver: bridge

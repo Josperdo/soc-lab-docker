@@ -1,0 +1,88 @@
+# ============================================================================
+# Filebeat Configuration – SOC Lab Docker
+# ============================================================================
+#
+# Picks up JSON log files written by the log-generator service and ships
+# them to Elasticsearch. Each line in the log files is a JSON event.
+#
+# See docs/ARCHITECTURE.md for the full data flow diagram.
+# ============================================================================
+
+# ----------------------------------------------------------------------------
+# Input: Monitor log files written by the generator
+# ----------------------------------------------------------------------------
+filebeat.inputs:
+  - type: log
+    enabled: true
+    paths:
+      - /var/log/soc-lab/*.json
+    # Parse each line as JSON and promote fields to the root document
+    json.keys_under_root: true
+    json.overwrite_keys: true
+    json.add_error_key: true
+    # Track file position to avoid re-reading on restart
+    scan_frequency: 5s
+    close_inactive: 5m
+    # Tag all events from this input
+    tags: ["soc-lab", "synthetic"]
+
+# ----------------------------------------------------------------------------
+# Processors: Enrich and normalize before shipping
+# ----------------------------------------------------------------------------
+processors:
+  - add_host_metadata:
+      when.not.contains.tags: forwarded
+  - add_docker_metadata: ~
+  - timestamp:
+      field: "@timestamp"
+      layouts:
+        - "2006-01-02T15:04:05.000Z"
+        - "2006-01-02T15:04:05Z"
+      test:
+        - "2024-01-15T10:30:00.000Z"
+      ignore_failure: true
+
+# ----------------------------------------------------------------------------
+# Output: Elasticsearch
+# ----------------------------------------------------------------------------
+output.elasticsearch:
+  hosts: ["http://elasticsearch:9200"]
+  # Index pattern: soc-lab-YYYY.MM.DD
+  index: "soc-lab-%{+yyyy.MM.dd}"
+  # Bulk insert settings for performance
+  bulk_max_size: 2048
+  worker: 1
+
+# ----------------------------------------------------------------------------
+# Index template setup
+# ----------------------------------------------------------------------------
+setup.template.name: "soc-lab"
+setup.template.pattern: "soc-lab-*"
+setup.template.overwrite: false
+setup.template.settings:
+  index.number_of_shards: 1
+  index.number_of_replicas: 0
+
+# ----------------------------------------------------------------------------
+# ILM (Index Lifecycle Management) – 7-day retention
+# ----------------------------------------------------------------------------
+setup.ilm.enabled: true
+setup.ilm.rollover_alias: "soc-lab"
+setup.ilm.pattern: "{now/d}-000001"
+setup.ilm.policy_name: "soc-lab-7day"
+setup.ilm.policy_file: ""
+setup.ilm.check_exists: true
+setup.ilm.overwrite: false
+
+# ----------------------------------------------------------------------------
+# Kibana – used for dashboard import (optional)
+# ----------------------------------------------------------------------------
+setup.kibana:
+  host: "http://kibana:5601"
+
+# ----------------------------------------------------------------------------
+# Logging
+# ----------------------------------------------------------------------------
+logging.level: warning
+logging.to_files: false
+logging.metrics.enabled: false

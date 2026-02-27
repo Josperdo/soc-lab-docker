@@ -1,0 +1,111 @@
+# ============================================================================
+# Network Event Template
+# ============================================================================
+# Covers: TCP/UDP connections, DNS queries/responses, firewall events
+# MITRE ATT&CK: T1071 (Application Layer Protocol),
+#               T1048 (Exfiltration Over Alternative Protocol),
+#               T1043 (Commonly Used Port)
+# ============================================================================
+
+event_category: network
+
+subtypes:
+  connection:
+    event_action: network_flow
+    event_outcome: success
+
+  dns_query:
+    event_action: dns_query
+    event_outcome: success
+
+  dns_response:
+    event_action: dns_response
+    event_outcome: success
+
+  firewall_block:
+    event_action: denied
+    event_outcome: failure
+
+# Common protocols
+protocols:
+  - tcp
+  - udp
+  - icmp
+  - dns
+  - http
+  - https
+  - ftp
+  - ssh
+  - smb
+  - rdp
+
+# Common destination ports with service names
+ports:
+  22: ssh
+  25: smtp
+  53: dns
+  80: http
+  88: kerberos
+  135: msrpc
+  139: netbios-ssn
+  143: imap
+  389: ldap
+  443: https
+  445: microsoft-ds
+  465: smtps
+  514: syslog
+  636: ldaps
+  993: imaps
+  1433: mssql
+  1521: oracle
+  3306: mysql
+  3389: rdp
+  4444: metasploit
+  4445: metasploit-alt
+  5432: postgresql
+  5900: vnc
+  6379: redis
+  8080: http-proxy
+  8443: https-alt
+  9200: elasticsearch
+  27017: mongodb
+  31337: backdoor
+
+# DNS record types
+dns_types:
+  - A
+  - AAAA
+  - CNAME
+  - MX
+  - TXT
+  - NS
+  - PTR
+
+# Suspicious TLDs (for generating DGA-like domains)
+suspicious_tlds:
+  - .xyz
+  - .top
+  - .pw
+  - .tk
+  - .ml
+  - .ga
+  - .cf
+
+# Legitimate domain patterns
+legitimate_domains:
+  - google.com
+  - microsoft.com
+  - amazonaws.com
+  - cloudflare.com
+  - github.com
+  - office365.com
+  - windows.com
+  - update.microsoft.com
+  - ocsp.digicert.com
+  - ctldl.windowsupdate.com
+
+# Network directions
+directions:
+  - inbound
+  - outbound
+  - internal

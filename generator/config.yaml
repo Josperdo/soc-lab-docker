@@ -1,0 +1,57 @@
+# ============================================================================
+# SOC Lab Log Generator – Default Configuration
+# ============================================================================
+#
+# All values here can be overridden via environment variables:
+#   EVENT_RATE            – events per second (default: 10)
+#   EVENT_TYPES           – comma-separated list of enabled event types
+#   LOG_OUTPUT_DIR        – directory to write log files
+#   SYNTHETIC_USER_COUNT  – number of synthetic user identities
+#   SYNTHETIC_HOST_COUNT  – number of synthetic host identities
+#
+# See generator/README.md for full documentation.
+# ============================================================================
+
+# Output settings
+output:
+  directory: /var/log/soc-lab
+  filename: soc-lab-events.json
+  # Rotate log file when it exceeds this size (MB)
+  rotate_mb: 100
+  # Number of rotated files to keep
+  rotate_count: 5
+
+# Generation rate
+rate:
+  # Events per second (float allowed, e.g. 0.5 = 1 event every 2s)
+  events_per_second: 10
+
+# Event type probability weights (must sum to ~100)
+# These control how often each type is generated relative to the others.
+event_weights:
+  authentication: 35
+  web_traffic: 30
+  process_execution: 20
+  network: 10
+  security_alerts: 5
+
+# Synthetic identity pools
+identities:
+  user_count: 50
+  host_count: 20
+
+# Realistic ratios within each event type
+event_ratios:
+  authentication:
+    success: 0.85
+    failure: 0.13
+    privilege_escalation: 0.02
+  web_traffic:
+    2xx: 0.75
+    3xx: 0.10
+    4xx: 0.12
+    5xx: 0.03
+  security_alerts:
+    antivirus: 0.40
+    ids: 0.35
+    edr: 0.25

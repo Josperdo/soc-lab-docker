@@ -1,0 +1,92 @@
+# ============================================================================
+# Web Traffic Event Template
+# ============================================================================
+# Covers: HTTP requests, responses, web app activity
+# MITRE ATT&CK: T1190 (Exploit Public-Facing Application)
+# ============================================================================
+
+event_category: web
+
+subtypes:
+  request:
+    event_action: http_request
+    event_outcome: success
+
+  error:
+    event_action: http_request
+    event_outcome: failure
+
+http_methods:
+  - GET
+  - POST
+  - PUT
+  - DELETE
+  - PATCH
+  - HEAD
+  - OPTIONS
+
+# Common URL paths (realistic web app paths)
+paths:
+  - /
+  - /index.html
+  - /login
+  - /logout
+  - /api/v1/users
+  - /api/v1/data
+  - /api/v1/auth
+  - /admin
+  - /admin/users
+  - /admin/settings
+  - /dashboard
+  - /search
+  - /upload
+  - /download
+  - /static/js/app.js
+  - /static/css/style.css
+  - /favicon.ico
+  - /robots.txt
+  - /wp-admin
+  - /wp-login.php
+  - /.env
+  - /config.php
+  - /phpinfo.php
+  - /api/health
+  - /api/v2/reports
+
+# HTTP status codes with weights
+status_codes:
+  200: 60
+  201: 5
+  204: 3
+  301: 4
+  302: 4
+  304: 3
+  400: 6
+  401: 3
+  403: 2
+  404: 5
+  429: 1
+  500: 2
+  502: 1
+  503: 1
+
+# Realistic user agents
+user_agents:
+  - "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+  - "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+  - "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:121.0) Gecko/20100101 Firefox/121.0"
+  - "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15"
+  - "Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36"
+  - "curl/7.88.1"
+  - "python-requests/2.31.0"
+  - "Wget/1.21.3"
+  - "Go-http-client/1.1"
+  - "sqlmap/1.7.8 (https://sqlmap.org)"
+
+# Web server names
+servers:
+  - web-server-01
+  - web-server-02
+  - app-server-01
+  - api-gateway-01
+  - nginx-proxy-01

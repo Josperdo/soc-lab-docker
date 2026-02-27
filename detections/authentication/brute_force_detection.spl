@@ -1,0 +1,114 @@
+| ============================================================================
+| Detection: Brute Force Authentication (SPL – Splunk)
+| ============================================================================
+|
+| Purpose:
+|   Detect rapid authentication failures from a single source IP against
+|   one or more accounts, consistent with credential brute force or
+|   password spraying attacks.
+|
+| Logic:
+|   1. Collect all authentication failure events in the target index
+|   2. Bucket events into 5-minute windows
+|   3. Count failures per src_ip + user combination per window
+|   4. Alert when count exceeds threshold (default: 10 in 5 minutes)
+|   5. Look for success events from the same IP (credential found)
+|
+| Field requirements (SOC Lab schema):
+|   event.category     = "authentication"
+|   event.outcome      = "failure" or "success"
+|   source.ip          – attacker source IP
+|   user.name          – targeted username
+|   authentication.service – target service (sshd, rdp, etc.)
+|   host.name          – targeted host
+|
+| Tuning guidance:
+|   - Adjust threshold (>10) based on your baseline failure rate
+|   - Exclude service accounts and CI/CD systems if they generate noise
+|   - Add a time-of-day filter for after-hours alerting only
+|   - Consider splitting password spray (many users, 1 IP) vs brute force
+|     (1 user, many passwords) – both are detected here
+|
+| MITRE ATT&CK:
+|   T1110     – Brute Force
+|   T1110.001 – Password Guessing
+|   T1110.003 – Password Spraying
+|   T1078     – Valid Accounts (success after failures)
+|
+| Tested against: SOC Lab mock data (generator/generator.py)
+| Last updated:   2026-02-26
+| ============================================================================
+
+| ===========================================================================
+| QUERY 1: Brute Force Detection – Failure threshold per source IP
+| ===========================================================================
+
+index="soc-lab-*"
+    event.category="authentication"
+    event.outcome="failure"
+| eval window=strftime(_time, "%Y-%m-%d %H:%M")
+| bin _time span=5m
+| stats
+    count         AS failure_count,
+    dc(user.name) AS unique_users,
+    values(user.name) AS targeted_accounts,
+    values(host.name) AS targeted_hosts,
+    values(authentication.service) AS services
+    BY source.ip, _time
+| where failure_count > 10
+| eval
+    severity=case(
+        failure_count >= 100, "critical",
+        failure_count >= 50,  "high",
+        failure_count >= 20,  "medium",
+        true(),               "low"
+    ),
+    attack_type=if(unique_users > 3, "password_spray", "brute_force")
+| sort -failure_count
+| table
+    _time, source.ip, attack_type, failure_count, unique_users,
+    targeted_accounts, targeted_hosts, services, severity
+
+
+| ===========================================================================
+| QUERY 2: Success After Failures – Credential Stuffing Confirmation
+| Correlates a success event with prior failures from the same source IP
+| ===========================================================================
+
+index="soc-lab-*" event.category="authentication"
+| eval auth_key = source.ip + "|" + user.name
+| eval is_failure = if(event.outcome="failure", 1, 0)
+| eval is_success = if(event.outcome="success", 1, 0)
+| bin _time span=15m
+| stats
+    sum(is_failure) AS prior_failures,
+    sum(is_success) AS successes,
+    values(host.name) AS hosts
+    BY source.ip, user.name, _time
+| where prior_failures >= 5 AND successes >= 1
+| eval severity="high"
+| eval description="Success after " . prior_failures . " failures – possible credential stuffing"
+| sort -prior_failures
+| table _time, source.ip, user.name, prior_failures, successes, hosts, severity, description
+
+
+| ===========================================================================
+| QUERY 3: Password Spray – Many Users, Same IP
+| Detects an attacker trying one password against many accounts
+| ===========================================================================
+
+index="soc-lab-*"
+    event.category="authentication"
+    event.outcome="failure"
+| bin _time span=10m
+| stats
+    dc(user.name) AS unique_users_targeted,
+    count         AS total_attempts,
+    values(user.name) AS usernames,
+    values(host.name) AS targets
+    BY source.ip, _time
+| where unique_users_targeted > 5
+| eval severity=if(unique_users_targeted > 20, "high", "medium")
+| eval detection_name="Password Spray Detected"
+| sort -unique_users_targeted
+| table _time, source.ip, unique_users_targeted, total_attempts, usernames, targets, severity

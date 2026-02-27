@@ -1,0 +1,147 @@
+| ============================================================================
+| Detection: PsExec Lateral Movement (SPL – Splunk)
+| ============================================================================
+|
+| Purpose:
+|   Detect lateral movement via PsExec or similar remote execution tools.
+|   PsExec works by copying a service binary (PSEXESVC.exe) to the ADMIN$
+|   share of a target host and using the Windows Service Control Manager
+|   to execute it remotely.
+|
+| Logic:
+|   1. Detect PSEXESVC.exe process creation on any host
+|   2. Detect admin share access (\\host\ADMIN$, C$, IPC$) over SMB
+|   3. Detect cmd.exe spawned with SYSTEM integrity from PSEXESVC parent
+|   4. Correlate network connections on port 445 from non-DC hosts
+|   5. (Optional) Sequence: auth success → SMB → remote process
+|
+| Field requirements (SOC Lab schema):
+|   event.category       = "process" or "network"
+|   process.name         – process executable name
+|   process.parent.name  – parent process name
+|   process.integrity_level – Windows integrity level
+|   network.transport    = "tcp"
+|   destination.port     = 445 (SMB)
+|   host.name            – source and destination host names
+|   user.name            – account used
+|
+| Tuning guidance:
+|   - PSEXESVC.exe is the default service binary name; attackers may rename it
+|   - Check for other lateral movement tools: PAExec, RemCom, wmiexec.py
+|   - Exclude known legitimate admin hosts using a lookup table
+|   - Admin share access from IT jump servers is expected; whitelist by host
+|   - Consider correlating with failed login attempts before admin share access
+|
+| False positives:
+|   - Legitimate IT administration using PsExec for software deployment
+|   - Systems Management tools (SCCM, Ansible) using admin shares
+|   - Solution: maintain an allowed host list and exclude
+|
+| MITRE ATT&CK:
+|   T1021.002 – Remote Services: SMB/Windows Admin Shares
+|   T1570     – Lateral Tool Transfer
+|   T1543.003 – Create or Modify System Process: Windows Service
+|   T1059.003 – Command and Scripting Interpreter: Windows Command Shell
+|
+| Tested against: SOC Lab mock data (scripts/lateral_movement_simulation.sh)
+| Last updated:   2026-02-26
+| ============================================================================
+
+
+| ===========================================================================
+| QUERY 1: PSEXESVC Process Creation (High Confidence)
+| Direct indicator – PSEXESVC.exe should rarely appear in a clean environment
+| ===========================================================================
+
+index="soc-lab-*"
+    event.category="process"
+    (process.name="PSEXESVC.exe" OR process.parent.name="PSEXESVC.exe")
+| eval severity="high"
+| eval detection_name="PsExec Service Binary Detected"
+| stats
+    count                 AS event_count,
+    values(process.name)  AS processes,
+    values(user.name)     AS accounts,
+    values(host.name)     AS affected_hosts
+    BY source.ip, _time, severity, detection_name
+| sort -event_count
+| table _time, detection_name, affected_hosts, accounts, processes, source.ip, event_count, severity
+
+
+| ===========================================================================
+| QUERY 2: Remote cmd.exe with SYSTEM Integrity
+| cmd.exe running as SYSTEM is a high-confidence indicator of remote execution
+| ===========================================================================
+
+index="soc-lab-*"
+    event.category="process"
+    process.name="cmd.exe"
+    user.name="SYSTEM"
+    (process.parent.name="PSEXESVC.exe" OR process.parent.name="services.exe")
+| eval severity="high"
+| eval detection_name="Remote cmd.exe Spawned as SYSTEM"
+| table _time, host.name, process.name, process.command_line, process.parent.name, user.name, severity, detection_name
+
+
+| ===========================================================================
+| QUERY 3: Admin Share SMB Access (Port 445)
+| Look for internal hosts making SMB connections to other internal hosts
+| on port 445 – especially non-DC to non-workstation patterns
+| ===========================================================================
+
+index="soc-lab-*"
+    event.category="network"
+    destination.port=445
+    network.transport="tcp"
+| eval src_host=host.name
+| stats
+    count          AS smb_connections,
+    dc(destination.ip) AS unique_destinations,
+    values(destination.ip) AS targets
+    BY source.ip, src_host, _time
+| bin _time span=5m
+| where smb_connections > 3 OR unique_destinations > 2
+| eval severity=if(unique_destinations > 5, "high", "medium")
+| eval detection_name="Suspicious SMB Lateral Movement"
+| sort -smb_connections
+| table _time, src_host, source.ip, smb_connections, unique_destinations, targets, severity
+
+
+| ===========================================================================
+| QUERY 4: Lateral Movement Sequence (Advanced Correlation)
+|
+| This multi-search correlation joins:
+|   - Auth success event on a host
+|   - Followed by SMB connection from the same host within 2 minutes
+|   - Followed by remote process creation
+|
+| Uses subsearches – adjust index and time window as needed
+| ===========================================================================
+
+| base search for auth + SMB correlation
+index="soc-lab-*" event.category="authentication" event.outcome="success"
+| eval auth_src_ip=source.ip, auth_time=_time, auth_user=user.name
+| join type=inner auth_src_ip [
+    search index="soc-lab-*" event.category="network" destination.port=445
+    | eval auth_src_ip=source.ip
+    | stats min(_time) AS smb_time BY auth_src_ip, destination.ip
+]
+| where smb_time - auth_time < 120
+| eval severity="high"
+| eval detection_name="Auth → SMB Lateral Movement Sequence"
+| table auth_time, smb_time, auth_src_ip, auth_user, destination.ip, severity, detection_name
+| sort -auth_time
+
+
+| ===========================================================================
+| QUERY 5: Net.exe Admin Share Commands
+| Catches "net use \\host\ADMIN$" and similar staging commands
+| ===========================================================================
+
+index="soc-lab-*"
+    event.category="process"
+    process.name="net.exe"
+    process.command_line="*\\ADMIN$*" OR process.command_line="*\\C$*" OR process.command_line="*\\IPC$*"
+| eval severity="medium"
+| eval detection_name="Admin Share Access via net.exe"
+| table _time, host.name, user.name, process.command_line, severity, detection_name

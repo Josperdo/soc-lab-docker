@@ -1,0 +1,120 @@
+# ============================================================================
+# Security Alert Event Template
+# ============================================================================
+# Covers: Antivirus detections, IDS/IPS alerts, EDR detections
+# MITRE ATT&CK: Multiple TTPs depending on alert type
+# ============================================================================
+
+event_category: security_alert
+
+subtypes:
+  antivirus:
+    event_action: antivirus_detection
+    event_outcome: success    # success = threat was blocked/quarantined
+    log_level: critical
+
+  ids:
+    event_action: ids_alert
+    event_outcome: success
+    log_level: warning
+
+  edr:
+    event_action: edr_detection
+    event_outcome: success
+    log_level: critical
+
+# Severity levels
+severities:
+  - critical
+  - high
+  - medium
+  - low
+  - informational
+
+# Antivirus product names
+av_products:
+  - Windows Defender
+  - CrowdStrike Falcon
+  - Carbon Black
+  - Symantec Endpoint Protection
+  - McAfee ENS
+  - Trend Micro Apex One
+  - Sophos Intercept X
+
+# Malware names (fictional/generic for lab use)
+malware_names:
+  - Trojan.GenericKD.48123
+  - HEUR/AGEN.1234567
+  - Ransom:Win32/WannaCrypt.A
+  - TrojanDropper:Win32/Agent.K
+  - Backdoor.Win32.Generic
+  - HackTool:Win32/Mimikatz.C
+  - PUA:Win32/CoinMiner
+  - Exploit:Win32/CVE-2021-40444
+  - Trojan:PowerShell/Downloader.A
+  - EICAR-Test-File
+
+# IDS rule categories
+ids_categories:
+  - MALWARE-CNC
+  - POLICY-SOCIAL
+  - EXPLOIT-KIT
+  - INDICATOR-COMPROMISE
+  - SCAN
+  - SQL-INJECTION
+  - WEB-ATTACKS
+  - PROTOCOL-VIOLATION
+  - SHELLCODE
+  - MALWARE-BACKDOOR
+
+# IDS product names
+ids_products:
+  - Snort
+  - Suricata
+  - Zeek
+  - Palo Alto Threat Prevention
+  - Cisco Firepower
+  - Check Point IPS
+
+# EDR vendors
+edr_vendors:
+  - CrowdStrike Falcon
+  - Carbon Black EDR
+  - Microsoft Defender for Endpoint
+  - SentinelOne
+  - Cybereason
+
+# EDR detection categories
+edr_categories:
+  - Credential Access
+  - Lateral Movement
+  - Defense Evasion
+  - Persistence
+  - Execution
+  - Discovery
+  - Collection
+  - Exfiltration
+  - Command and Control
+
+# MITRE ATT&CK technique IDs mapped to alert types
+mitre_techniques:
+  credential_access:
+    - T1003
+    - T1110
+    - T1558
+  lateral_movement:
+    - T1021
+    - T1534
+    - T1570
+  defense_evasion:
+    - T1027
+    - T1055
+    - T1562
+  persistence:
+    - T1053
+    - T1098
+    - T1547
+  execution:
+    - T1059
+    - T1106
+    - T1204

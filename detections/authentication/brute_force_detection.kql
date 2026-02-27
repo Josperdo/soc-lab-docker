@@ -1,0 +1,144 @@
+// ============================================================================
+// Detection: Brute Force Authentication (KQL – Kibana / Azure Sentinel)
+// ============================================================================
+//
+// Purpose:
+//   Detect rapid authentication failures from a single source IP, consistent
+//   with credential brute force or password spraying attacks.
+//
+// Formats provided:
+//   QUERY 1  – Kibana Lens / Discover (standard KQL filter syntax)
+//   QUERY 2  – Kibana EQL (Event Query Language, correlation)
+//   QUERY 3  – Azure Sentinel KQL (Log Analytics / Microsoft Sentinel)
+//
+// Field requirements (SOC Lab ECS-aligned schema):
+//   event.category     = "authentication"
+//   event.outcome      = "failure" | "success"
+//   source.ip          – attacker source IP
+//   user.name          – targeted username
+//   host.name          – targeted host
+//   authentication.service – target service
+//
+// Tuning guidance:
+//   - Adjust threshold values based on observed baseline failure rates
+//   - Use the Kibana ML job for anomaly-based thresholding vs static rules
+//   - Whitelist trusted IPs (VPN concentrators, jump servers) with NOT filters
+//   - For Sentinel: adjust the lookback window (timeframe) as needed
+//
+// MITRE ATT&CK:
+//   T1110     – Brute Force
+//   T1110.001 – Password Guessing
+//   T1110.003 – Password Spraying
+//   T1078     – Valid Accounts
+//
+// Tested against: SOC Lab mock data (generator/generator.py)
+// Last updated:   2026-02-26
+// ============================================================================
+
+
+// ===========================================================================
+// QUERY 1: Kibana KQL – Simple Failure Filter
+// Use in: Kibana → Discover or Lens
+//
+// This is a base filter. Apply to the soc-lab-* index pattern and add
+// a time range. Then use aggregations in Lens to count by source.ip.
+// ===========================================================================
+
+event.category: "authentication" AND event.outcome: "failure"
+
+
+// To narrow to a specific service (e.g., SSH only):
+// event.category: "authentication" AND event.outcome: "failure" AND authentication.service: "sshd"
+
+// To see success-after-failure pattern:
+// event.category: "authentication" AND (event.outcome: "failure" OR event.outcome: "success")
+
+
+// ===========================================================================
+// QUERY 2: Kibana EQL – Sequence Detection (Brute Force + Success)
+// Use in: Kibana → Security → Rules → EQL Rule
+//
+// Detects a sequence of 5+ failures followed by a success from the same IP
+// within a 5-minute window.
+// ===========================================================================
+
+/*
+sequence by source.ip with maxspan=5m
+  [authentication where event.outcome == "failure"] with runs=5
+  [authentication where event.outcome == "success"]
+*/
+
+
+// ===========================================================================
+// QUERY 3: Azure Sentinel KQL (Log Analytics / Microsoft Sentinel)
+// Use in: Sentinel → Logs, or create as a Scheduled Analytics Rule
+//
+// Aggregates failures by source IP in a 5-minute window and alerts
+// when the threshold is exceeded. Also enriches with a success indicator.
+// ===========================================================================
+
+/*
+// Brute Force Threshold Detection
+let threshold = 10;
+let lookback = 5m;
+let failures =
+    soc_lab_CL
+    | where event_category_s == "authentication"
+    | where event_outcome_s == "failure"
+    | where TimeGenerated > ago(lookback)
+    | summarize
+        FailureCount = count(),
+        UniqueUsers  = dcount(user_name_s),
+        TargetedUsers = make_set(user_name_s, 20),
+        TargetedHosts = make_set(host_name_s, 10)
+        by SourceIP = source_ip_s, bin(TimeGenerated, 5m);
+let successes =
+    soc_lab_CL
+    | where event_category_s == "authentication"
+    | where event_outcome_s == "success"
+    | where TimeGenerated > ago(lookback)
+    | summarize
+        SuccessCount = count(),
+        SuccessUsers = make_set(user_name_s, 5)
+        by SourceIP = source_ip_s, bin(TimeGenerated, 5m);
+failures
+| where FailureCount >= threshold
+| join kind=leftouter (successes) on SourceIP, TimeGenerated
+| extend
+    AttackType        = iif(UniqueUsers > 3, "Password Spray", "Brute Force"),
+    CredentialFound   = iif(isnotempty(SuccessCount), "YES", "NO"),
+    Severity          = case(
+        FailureCount >= 100, "Critical",
+        FailureCount >= 50,  "High",
+        FailureCount >= 20,  "Medium",
+        "Low"
+    )
+| project
+    TimeGenerated, SourceIP, AttackType, FailureCount, UniqueUsers,
+    TargetedUsers, TargetedHosts, CredentialFound, SuccessCount,
+    SuccessUsers, Severity
+| order by FailureCount desc
+*/
+
+
+// ===========================================================================
+// QUERY 4: Kibana ESQL (ES|QL – Elasticsearch Query Language)
+// Use in: Kibana → Discover → ESQL mode (Kibana 8.11+)
+//
+// Modern pipeline syntax for Elasticsearch. Runs directly in Kibana
+// without needing Lens. Great for ad-hoc investigation.
+// ===========================================================================
+
+/*
+FROM soc-lab-*
+| WHERE event.category == "authentication"
+  AND event.outcome == "failure"
+| STATS
+    failure_count = COUNT(*),
+    unique_users  = COUNT_DISTINCT(user.name),
+    hosts         = VALUES(host.name)
+  BY source.ip,
+     BUCKET(@timestamp, 5 minutes)
+| WHERE failure_count > 10
+| SORT failure_count DESC
+*/

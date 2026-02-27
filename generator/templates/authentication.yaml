@@ -1,0 +1,67 @@
+# ============================================================================
+# Authentication Event Template
+# ============================================================================
+# Covers: login success, login failure, privilege escalation
+# MITRE ATT&CK: T1110 (Brute Force), T1078 (Valid Accounts)
+# ============================================================================
+
+event_category: authentication
+
+subtypes:
+  success:
+    event_action: logon
+    event_outcome: success
+    log_level: info
+
+  failure:
+    event_action: logon
+    event_outcome: failure
+    log_level: warning
+
+  privilege_escalation:
+    event_action: sudo
+    event_outcome: success
+    log_level: warning
+
+# Common field values
+auth_methods:
+  - password
+  - publickey
+  - kerberos
+  - ntlm
+  - certificate
+
+logon_types:
+  - interactive
+  - network
+  - remote_interactive
+  - batch
+  - service
+
+services:
+  - sshd
+  - winlogon
+  - rdp
+  - vpn
+  - web_app
+  - ldap
+
+# OS platforms represented
+platforms:
+  - windows
+  - linux
+  - macos
+
+# Domain names for Windows events
+domains:
+  - CORP
+  - ACME
+  - LAB
+  - WORKGROUP
+
+# Common target processes for privilege escalation
+escalation_commands:
+  - sudo su -
+  - sudo bash
+  - runas /user:Administrator cmd
+  - psexec -i -s cmd.exe

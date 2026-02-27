@@ -81,35 +81,50 @@ docker-compose up -d
 docker-compose ps
 
 # Expected output:
-# NAME                   STATUS              PORTS
-# soc-lab-elasticsearch  Up (healthy)        0.0.0.0:9200->9200/tcp
-# soc-lab-aggregator     Up                  0.0.0.0:5000->5000/tcp
-# soc-lab-generator      Up
-# soc-lab-web-ui         Up (healthy)        0.0.0.0:5601->5601/tcp
+# NAME                      STATUS              PORTS
+# soc-lab-elasticsearch     Up (healthy)        0.0.0.0:9200->9200/tcp
+# soc-lab-filebeat          Up
+# soc-lab-log-generator     Up
+# soc-lab-kibana            Up (healthy)        0.0.0.0:5601->5601/tcp
 ```
+
+> **Windows users:** Docker Desktop must be running before using any Docker commands.
+> Enable **Start Docker Desktop when you sign in** in Settings → General to avoid this step.
+> Run attack simulation scripts via WSL: `wsl bash scripts/brute_force_simulation.sh`
 
 ### 4. Access the Lab
 
 ```bash
-# Web UI (Kibana/Grafana)
-# Open browser: http://localhost:5601
+# Web UI – open in browser
+http://localhost:5601
 
 # Direct API access (Elasticsearch)
-# curl http://localhost:9200
+curl http://localhost:9200
 
 # Check data availability
-curl http://localhost:9200/_cat/indices
-# Should see indices like: logs-2026.02.26
+curl http://localhost:9200/_cat/indices?v
+# Should see indices like: .ds-soc-lab-2026.02.27-000001
 ```
 
-### 5. Verify Data Generation
+### 5. Create Kibana Data View
+
+Before browsing data in Kibana you need to create a data view:
+
+1. Open `http://localhost:5601/app/management/kibana/dataViews`
+2. Click **Create data view**
+3. Set **Index pattern** to `soc-lab-*` and **Timestamp field** to `@timestamp`
+4. Click **Save data view to Kibana**
+
+Then go to **Analytics → Discover** to explore live events.
+
+### 6. Verify Data Generation
 
 ```bash
-# Monitor logs being generated
-docker-compose logs generator
+# Monitor the generator
+docker-compose logs --tail=10 log-generator
 
 # Check events in Elasticsearch
-curl -X GET "localhost:9200/logs-*/_count"
+curl -X GET "localhost:9200/soc-lab-*/_count"
 
 # Expected output:
 # {"count":1234,"_shards":{"total":1,"successful":1,"skipped":0,"failed":0}}
@@ -230,20 +245,20 @@ curl -s http://localhost:9200 | jq .
 
 ```bash
 # Verify logs file exists and is being written
-docker exec soc-lab-generator ls -lh /var/log/soc-lab/
+ls data/logs/
 
-# Monitor live log output
-docker exec soc-lab-generator tail -f /var/log/soc-lab/events.json
+# Monitor live log output (Linux/macOS/WSL)
+tail -f data/logs/soc-lab-events.json
 ```
 
 #### 4. Test Data in Index
 
 ```bash
 # Count total events
-curl -s "http://localhost:9200/logs-*/_count" | jq .count
+curl -s "http://localhost:9200/soc-lab-*/_count"
 
 # Sample a recent event
-curl -s "http://localhost:9200/logs-*/_search?size=1" | jq '.hits.hits[0]._source'
+curl -s "http://localhost:9200/soc-lab-*/_search?size=1"
 ```
 
 ### Common Issues & Solutions
@@ -339,25 +354,25 @@ LOG_GENERATION_RATE=5  # Instead of 10
 **Symptom:**
 
 ```
-curl http://localhost:9200/_cat/indices
-(Empty output or no logs-* indices)
+curl http://localhost:9200/_cat/indices?v
+(Empty output or no soc-lab-* indices)
 ```
 
 **Solution:**
 
 ```bash
 # 1. Check generator is running
-docker-compose ps generator  # Should be "Up"
+docker-compose ps  # log-generator should be "Up"
 
-# 2. Check logs exist
-docker exec soc-lab-generator ls -lh /var/log/soc-lab/
+# 2. Check logs exist on host
+ls data/logs/
 
-# 3. Check aggregator logs
-docker-compose logs aggregator
+# 3. Check filebeat logs
+docker-compose logs filebeat
 # Look for errors about log file or Elasticsearch connection
 
-# 4. Force restart aggregator
-docker-compose restart aggregator
+# 4. Force restart filebeat
+docker-compose restart filebeat
 
 # Wait 30 seconds, then check again
 curl http://localhost:9200/_cat/indices?v
@@ -441,35 +456,17 @@ docker-compose up -d
 
 ### Persistent Storage (Keep Data After Shutdown)
 
-By default, data is lost when containers stop. For persistence:
+Elasticsearch data is persisted in a named Docker volume (`elasticsearch-data`) by default —
+it survives `docker-compose stop/start`. Only `docker-compose down -v` removes it.
 
-```bash
-# Edit docker-compose.yml and add volumes:
-volumes:
-  elasticsearch-data:
-    driver: local
-
-# Then in elasticsearch service:
-volumes:
-  - elasticsearch-data:/usr/share/elasticsearch/data
-```
+Generated log files are written to `./data/logs/` on the host and persist between restarts.
 
 ### Custom Log Generator Configuration
 
 ```bash
-# Create custom event template
-cat > generator/templates/custom_events.yaml <<EOF
-event_types:
-  - name: custom_event
-    fields:
-      source: "custom-app-01"
-      event_type: "application"
-      severity: "info"
-EOF
-
-# Rebuild generator image
-docker-compose build generator
-docker-compose up -d
+# Create custom event template in generator/templates/
+# Then rebuild and restart the generator
+docker-compose up -d --build log-generator
 ```
 
 ### Scale Event Generation
