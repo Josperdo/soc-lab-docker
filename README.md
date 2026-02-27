@@ -23,37 +23,37 @@ Whether you're new to detection engineering, preparing for security certificatio
 
 ## Key Features
 
-✅ **Local Docker Stack**
+**Local Docker Stack**
 
 - Compose-based deployment (Elasticsearch, data lake, log shipper, UI)
 - One-command lab spin-up: `docker-compose up`
 - Development-friendly with `.env` configuration
 
-✅ **Realistic Log Generation**
+**Realistic Log Generation**
 
 - Mock event generator (web traffic, auth, OS events, security tools)
 - Configurable event volume and distribution
 - Extensible for custom log types
 
-✅ **Attack Simulation**
+**Attack Simulation**
 
 - Bash/Python scripts simulating common attack patterns
 - Coordinated event chains (reconnaissance → exploitation → exfiltration)
 - Educational annotations explaining each step
 
-✅ **Detection Examples**
+**Detection Examples**
 
 - Query templates for common SPL, KQL, PromQL use cases
 - Best practices for detection tuning and baseline methodology
 - Threat mappings (MITRE ATT&CK) where applicable
 
-✅ **Dashboard Gallery**
+**Dashboard Gallery**
 
 - Sample dashboards (event overview, alerts, anomalies)
 - Guided walkthroughs for query building
 - Export-ready configurations
 
-✅ **Comprehensive Documentation**
+**Comprehensive Documentation**
 
 - Architecture overview
 - Lab deployment guide
@@ -66,7 +66,7 @@ Whether you're new to detection engineering, preparing for security certificatio
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                     SOC Lab Docker Stack                     │
+│                     SOC Lab Docker Stack                    │
 ├──────────────────────────┬──────────────────────────────────┤
 │  Event Generation Layer  │     Data Collection Layer        │
 │  ┌────────────────────┐  │  ┌──────────────────────────────┐│
@@ -78,14 +78,14 @@ Whether you're new to detection engineering, preparing for security certificatio
 │  │ - Security Alerts  │  │  │  Search & Index (Elastic)    ││
 │  └────────────────────┘  │  │  or Data Lake (ADLS)         ││
 │                          │  └────────────┬─────────────────┘│
-├──────────────────────────┴─────────────────────────────────┤
-│                    Query & Analysis Layer                  │
-│  ┌──────────────┐  ┌──────────────┐  ┌────────────────┐  │
-│  │ Detection    │  │  Interactive │  │   Dashboards   │  │
-│  │ Queries      │  │  Query Tool  │  │  & Visualize   │  │
-│  │ (SPL/KQL)    │  │              │  │                │  │
-│  └──────────────┘  └──────────────┘  └────────────────┘  │
-└────────────────────────────────────────────────────────────┘
+├──────────────────────────┴──────────────────────────────────┤
+│                    Query & Analysis Layer                   │
+│  ┌──────────────┐  ┌──────────────┐  ┌────────────────┐     │
+│  │ Detection    │  │  Interactive │  │   Dashboards   │     │
+│  │ Queries      │  │  Query Tool  │  │  & Visualize   │     │
+│  │ (SPL/KQL)    │  │              │  │                │     │
+│  └──────────────┘  └──────────────┘  └────────────────┘     │
+└─────────────────────────────────────────────────────────────┘
 
 Attack Simulation Scripts ──► Event Generator ──► Logs ──► Detections
 ```
@@ -290,14 +290,14 @@ This project is licensed under the [MIT License](LICENSE). Feel free to fork, mo
 
 ## Support & Learning Resources
 
-- 📖 [Full Documentation](docs/)
-- 🔧 [Setup & Deployment Guide](docs/SETUP.md)
-- 🛡️ [Architecture Deep Dive](docs/ARCHITECTURE.md)
-- 📋 [Roadmap & Milestones](docs/roadmap.md)
-- 🎓 [Detection Engineering Learning Path](docs/LEARNING_PATH.md)
+- [Full Documentation](docs/)
+- [Setup & Deployment Guide](docs/SETUP.md)
+- [Architecture Deep Dive](docs/ARCHITECTURE.md)
+- [Roadmap & Milestones](docs/roadmap.md)
+- [Detection Engineering Learning Path](docs/LEARNING_PATH.md)
 
 For issues, questions, or feature requests, please open a GitHub issue.
 
 ---
 
-**Happy detecting! 🛡️**
+**Happy detecting!**
