@@ -50,7 +50,7 @@ jobs:
       - name: Set up Docker via Colima (macOS only)
         if: runner.os == 'macOS'
         run: |
-          brew install colima docker docker-compose
+          brew install colima docker docker-compose qemu
 
           # Register docker-compose as a Docker CLI plugin so that
           # `docker compose` (plugin form) works alongside the standalone binary
