@@ -115,17 +115,19 @@ The features described here represent the direction of development and community
 
 ---
 
-### Cloud Deployment Support
+### Azure Sentinel Integration
 
-**Description:** Easy deployment to major cloud platforms with feature parity to local Docker.
+**Description:** Reference Terraform templates and ARM playbook examples for deploying the lab's detection logic to Azure Sentinel — the leading enterprise cloud SIEM.
 
-**Planned targets:**
+**Delivered (`terraform/sentinel/`):**
 
-- **Azure:** Bicep/ARM templates, Azure Sentinel integration
-- **AWS:** CloudFormation, ECS/EKS support
-- **GCP:** Deployment Manager, GKE support
+- **Terraform IaC:** Log Analytics Workspace and Sentinel onboarding, fully parameterized — deploy with `terraform apply` against your own subscription
+- **8 analytics rules:** All lab detections converted to `azurerm_sentinel_alert_rule_scheduled` resources with MITRE tactics, entity mappings, and tunable frequency/lookback settings
+- **3 SOAR playbook templates:** ARM Logic App templates for Slack notification, ticket creation (ServiceNow/JIRA pattern), and host isolation — parameterized and deployable via `az deployment group create`
+- **Data connector guide:** How to forward lab events (Filebeat → Azure Monitor) for an end-to-end pipeline experience (`data_connector/`)
+- **Full documentation:** `docs/SENTINEL_INTEGRATION.md` — prerequisites, deployment walkthrough, Sentinel UI navigation, cost guidance, and cleanup
 
-**Why it matters:** Learning cloud-native security, scalable environments for team training, cost optimization
+**Why it matters:** Azure Sentinel dominates enterprise cloud SIEM deployments. Writing detection-as-code in Terraform, structuring KQL analytics rules with entity mappings and MITRE techniques, and automating response with Logic Apps are high-signal skills for SOC and detection engineering roles. All templates are reference implementations — no live Azure subscription required to study or customize them.
 
 ---
 
@@ -304,5 +306,5 @@ The team prioritizes features based on:
 
 ---
 
-**Last Updated:** February 26, 2026  
+**Last Updated:** February 27, 2026
 **Next Review:** Quarterly (community feedback incorporated)

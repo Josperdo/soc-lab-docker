@@ -1,0 +1,21 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "PlaybookName": {
+      "value": "soc-lab-isolate-host"
+    },
+    "edrApiBaseUrl": {
+      "value": "https://api.securitycenter.microsoft.com/api/machines"
+    },
+    "edrApiToken": {
+      "value": "REPLACE_WITH_BEARER_TOKEN"
+    },
+    "isolationComment": {
+      "value": "Isolated by SOC Lab Sentinel playbook in response to automated alert."
+    },
+    "location": {
+      "value": "eastus"
+    }
+  }
+}

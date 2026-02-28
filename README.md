@@ -251,17 +251,26 @@ Pre-built dashboards are located in **dashboards/**:
 
 ---
 
-## Future Enhancements
+## Azure Sentinel Integration
 
-SOC Lab Docker is actively maintained with regular feature additions. The vision includes:
+Deploy the lab's detection library to Microsoft Sentinel — the leading enterprise cloud SIEM — using Terraform and ARM templates.
 
-- **Enhanced Detection Library:** Expanded Sigma rules, multi-source correlation queries, advanced baselines
-- **Cloud Integration:** Deployment support for Azure Sentinel, AWS SecurityHub, GCP Security Command Center
-- **Alerting Framework:** Alert rule definitions, notification backends, response automation
-- **Advanced Scenarios:** APT-inspired campaigns, persistence mechanisms, ransomware simulation
-- **Team Training Mode:** Multi-tenant support for security team training exercises
+**What's included (`terraform/sentinel/`):**
 
-See [docs/roadmap.md](docs/roadmap.md) for the capabilities roadmap and planned features.
+- **Terraform IaC** — Log Analytics Workspace + Sentinel onboarding, fully parameterized
+- **8 analytics rules** — All lab detections as `azurerm_sentinel_alert_rule_scheduled` resources with MITRE tactics, entity mappings, and tunable frequency/lookback
+- **3 SOAR playbooks** — ARM Logic App templates for Slack notification, ticket creation (ServiceNow/JIRA pattern), and host isolation
+- **Data connector guide** — Forward lab events via Filebeat → Azure Monitor for end-to-end pipeline experience
+
+```bash
+cd terraform/sentinel
+terraform init
+terraform apply -var-file="terraform.tfvars"
+```
+
+No live Azure subscription required to study or customize the templates. See [docs/SENTINEL_INTEGRATION.md](docs/SENTINEL_INTEGRATION.md) for the full deployment walkthrough.
+
+See [docs/roadmap.md](docs/roadmap.md) for the full capabilities roadmap.
 
 ---
 

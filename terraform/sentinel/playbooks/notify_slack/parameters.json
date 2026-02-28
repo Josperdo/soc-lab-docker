@@ -1,0 +1,15 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "PlaybookName": {
+      "value": "soc-lab-notify-slack"
+    },
+    "slackWebhookUrl": {
+      "value": "https://hooks.slack.com/services/REPLACE/WITH/YOUR-WEBHOOK-URL"
+    },
+    "location": {
+      "value": "eastus"
+    }
+  }
+}

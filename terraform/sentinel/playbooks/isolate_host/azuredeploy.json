@@ -1,0 +1,166 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "description": "SOC Lab Docker – Sentinel SOAR Playbook: Isolate Host on Alert. Triggered by a Microsoft Sentinel alert, this Logic App extracts the affected host entity and POSTs an isolation/quarantine request to an EDR API endpoint. Fully parameterized — substitute your EDR vendor's endpoint and authentication."
+  },
+  "parameters": {
+    "PlaybookName": {
+      "type": "string",
+      "defaultValue": "soc-lab-isolate-host",
+      "metadata": {
+        "description": "Name of the Logic App resource."
+      }
+    },
+    "edrApiBaseUrl": {
+      "type": "string",
+      "metadata": {
+        "description": "Base URL for the EDR platform's isolation API. Example for Defender for Endpoint: https://api.securitycenter.microsoft.com/api/machines"
+      }
+    },
+    "edrApiToken": {
+      "type": "securestring",
+      "metadata": {
+        "description": "Bearer token for the EDR API. For Defender for Endpoint, obtain via the OAuth2 client credentials flow."
+      }
+    },
+    "isolationComment": {
+      "type": "string",
+      "defaultValue": "Isolated by SOC Lab Sentinel playbook in response to automated alert.",
+      "metadata": {
+        "description": "Comment recorded in the EDR platform alongside the isolation action."
+      }
+    },
+    "location": {
+      "type": "string",
+      "defaultValue": "[resourceGroup().location]",
+      "metadata": {
+        "description": "Azure region for the Logic App."
+      }
+    }
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Logic/workflows",
+      "apiVersion": "2019-05-01",
+      "name": "[parameters('PlaybookName')]",
+      "location": "[parameters('location')]",
+      "tags": {
+        "project": "soc-lab-docker",
+        "purpose": "soar-playbook"
+      },
+      "properties": {
+        "state": "Enabled",
+        "definition": {
+          "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+          "contentVersion": "1.0.0.0",
+          "parameters": {
+            "edrApiBaseUrl": {
+              "type": "string"
+            },
+            "edrApiToken": {
+              "type": "securestring"
+            },
+            "isolationComment": {
+              "type": "string"
+            }
+          },
+          "triggers": {
+            "Microsoft_Sentinel_alert": {
+              "type": "ApiConnectionWebhook",
+              "inputs": {
+                "host": {
+                  "connection": {
+                    "name": "@parameters('$connections')['azuresentinel']['connectionId']"
+                  }
+                },
+                "body": {
+                  "callback_url": "@{listCallbackUrl()}"
+                },
+                "path": "/subscribe"
+              }
+            }
+          },
+          "actions": {
+            "Parse_Alert_Entities": {
+              "type": "ParseJson",
+              "inputs": {
+                "content": "@triggerBody()?['object']?['properties']?['relatedEntities']",
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "kind": { "type": "string" },
+                      "properties": {
+                        "type": "object",
+                        "properties": {
+                          "hostName": { "type": "string" },
+                          "dnsDomain": { "type": "string" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "Filter_Host_Entities": {
+              "type": "Query",
+              "runAfter": {
+                "Parse_Alert_Entities": ["Succeeded"]
+              },
+              "inputs": {
+                "from": "@body('Parse_Alert_Entities')",
+                "where": "@equals(item()?['kind'], 'Host')"
+              }
+            },
+            "For_Each_Host": {
+              "type": "Foreach",
+              "runAfter": {
+                "Filter_Host_Entities": ["Succeeded"]
+              },
+              "foreach": "@body('Filter_Host_Entities')",
+              "actions": {
+                "Isolate_Machine": {
+                  "type": "Http",
+                  "inputs": {
+                    "method": "POST",
+                    "uri": "@{parameters('edrApiBaseUrl')}/@{items('For_Each_Host')?['properties']?['hostName']}/isolate",
+                    "authentication": {
+                      "type": "Raw",
+                      "value": "Bearer @{parameters('edrApiToken')}"
+                    },
+                    "headers": {
+                      "Content-Type": "application/json"
+                    },
+                    "body": {
+                      "Comment": "@parameters('isolationComment')",
+                      "IsolationType": "Full"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": {
+          "edrApiBaseUrl": {
+            "value": "[parameters('edrApiBaseUrl')]"
+          },
+          "edrApiToken": {
+            "value": "[parameters('edrApiToken')]"
+          },
+          "isolationComment": {
+            "value": "[parameters('isolationComment')]"
+          }
+        }
+      }
+    }
+  ],
+  "outputs": {
+    "playbookResourceId": {
+      "type": "string",
+      "value": "[resourceId('Microsoft.Logic/workflows', parameters('PlaybookName'))]"
+    }
+  }
+}

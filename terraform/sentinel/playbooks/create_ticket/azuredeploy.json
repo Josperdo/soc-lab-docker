@@ -1,0 +1,148 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "description": "SOC Lab Docker – Sentinel SOAR Playbook: Create Ticket on Alert. Triggered by a Microsoft Sentinel alert, this Logic App POSTs alert details to a ticketing system REST API (ServiceNow / JIRA pattern). Fully parameterized — substitute your endpoint and credentials."
+  },
+  "parameters": {
+    "PlaybookName": {
+      "type": "string",
+      "defaultValue": "soc-lab-create-ticket",
+      "metadata": {
+        "description": "Name of the Logic App resource."
+      }
+    },
+    "ticketingApiUrl": {
+      "type": "string",
+      "metadata": {
+        "description": "Base URL of the ticketing system REST API. Example: https://yourinstance.service-now.com/api/now/table/incident"
+      }
+    },
+    "ticketingApiUsername": {
+      "type": "string",
+      "metadata": {
+        "description": "API username for Basic auth. For JIRA, use the email address associated with the API token."
+      }
+    },
+    "ticketingApiPassword": {
+      "type": "securestring",
+      "metadata": {
+        "description": "API password or token for Basic auth."
+      }
+    },
+    "location": {
+      "type": "string",
+      "defaultValue": "[resourceGroup().location]",
+      "metadata": {
+        "description": "Azure region for the Logic App."
+      }
+    }
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Logic/workflows",
+      "apiVersion": "2019-05-01",
+      "name": "[parameters('PlaybookName')]",
+      "location": "[parameters('location')]",
+      "tags": {
+        "project": "soc-lab-docker",
+        "purpose": "soar-playbook"
+      },
+      "properties": {
+        "state": "Enabled",
+        "definition": {
+          "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+          "contentVersion": "1.0.0.0",
+          "parameters": {
+            "ticketingApiUrl": {
+              "type": "string"
+            },
+            "ticketingApiUsername": {
+              "type": "string"
+            },
+            "ticketingApiPassword": {
+              "type": "securestring"
+            }
+          },
+          "triggers": {
+            "Microsoft_Sentinel_alert": {
+              "type": "ApiConnectionWebhook",
+              "inputs": {
+                "host": {
+                  "connection": {
+                    "name": "@parameters('$connections')['azuresentinel']['connectionId']"
+                  }
+                },
+                "body": {
+                  "callback_url": "@{listCallbackUrl()}"
+                },
+                "path": "/subscribe"
+              }
+            }
+          },
+          "actions": {
+            "Parse_Alert_Properties": {
+              "type": "ParseJson",
+              "inputs": {
+                "content": "@triggerBody()?['object']?['properties']",
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "alertDisplayName": { "type": "string" },
+                    "severity": { "type": "string" },
+                    "description": { "type": "string" },
+                    "startTimeUtc": { "type": "string" }
+                  }
+                }
+              }
+            },
+            "Create_Ticket": {
+              "type": "Http",
+              "runAfter": {
+                "Parse_Alert_Properties": ["Succeeded"]
+              },
+              "inputs": {
+                "method": "POST",
+                "uri": "@parameters('ticketingApiUrl')",
+                "authentication": {
+                  "type": "Basic",
+                  "username": "@parameters('ticketingApiUsername')",
+                  "password": "@parameters('ticketingApiPassword')"
+                },
+                "headers": {
+                  "Content-Type": "application/json",
+                  "Accept": "application/json"
+                },
+                "body": {
+                  "short_description": "[SOC Lab Sentinel] @{body('Parse_Alert_Properties')?['alertDisplayName']}",
+                  "description": "@{body('Parse_Alert_Properties')?['description']}",
+                  "urgency": "2",
+                  "impact": "2",
+                  "category": "Security",
+                  "comments": "Alert fired at @{body('Parse_Alert_Properties')?['startTimeUtc']}. Severity: @{body('Parse_Alert_Properties')?['severity']}. Investigate via Microsoft Sentinel."
+                }
+              }
+            }
+          }
+        },
+        "parameters": {
+          "ticketingApiUrl": {
+            "value": "[parameters('ticketingApiUrl')]"
+          },
+          "ticketingApiUsername": {
+            "value": "[parameters('ticketingApiUsername')]"
+          },
+          "ticketingApiPassword": {
+            "value": "[parameters('ticketingApiPassword')]"
+          }
+        }
+      }
+    }
+  ],
+  "outputs": {
+    "playbookResourceId": {
+      "type": "string",
+      "value": "[resourceId('Microsoft.Logic/workflows', parameters('PlaybookName'))]"
+    }
+  }
+}

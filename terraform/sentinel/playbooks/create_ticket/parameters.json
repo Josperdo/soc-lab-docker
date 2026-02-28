@@ -1,0 +1,21 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "PlaybookName": {
+      "value": "soc-lab-create-ticket"
+    },
+    "ticketingApiUrl": {
+      "value": "https://YOURINSTANCE.service-now.com/api/now/table/incident"
+    },
+    "ticketingApiUsername": {
+      "value": "REPLACE_WITH_API_USERNAME"
+    },
+    "ticketingApiPassword": {
+      "value": "REPLACE_WITH_API_PASSWORD_OR_TOKEN"
+    },
+    "location": {
+      "value": "eastus"
+    }
+  }
+}

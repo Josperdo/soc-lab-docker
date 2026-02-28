@@ -1,0 +1,115 @@
+# =============================================================================
+# Filebeat Output Configuration – Azure Monitor (Log Analytics)
+# =============================================================================
+# Forwards SOC Lab events from the local Elasticsearch/Filebeat stack to an
+# Azure Log Analytics Workspace, making them queryable in Microsoft Sentinel.
+#
+# How to use:
+#   1. Run `terraform output workspace_customer_id` and `terraform output -raw
+#      primary_shared_key` to get your workspace credentials.
+#   2. Replace WORKSPACE_ID and PRIMARY_SHARED_KEY below.
+#   3. Merge this snippet into your Filebeat configuration or use it as a
+#      standalone filebeat.yml alongside the existing docker-compose stack.
+#   4. Restart Filebeat. Events will appear in the soc_lab_CL custom table
+#      within a few minutes.
+#
+# Reference:
+#   https://www.elastic.co/guide/en/beats/filebeat/current/logstash-output.html
+#   https://learn.microsoft.com/en-us/azure/azure-monitor/logs/data-collector-api
+# =============================================================================
+
+filebeat.inputs:
+  - type: log
+    enabled: true
+    paths:
+      - /var/log/soc-lab/*.json
+    json.keys_under_root: true
+    json.add_error_key: true
+    fields_under_root: true
+    fields:
+      log_type: soc_lab
+
+# -----------------------------------------------------------------
+# Output: Azure Monitor Log Analytics (Custom Log – soc_lab_CL)
+# -----------------------------------------------------------------
+# Filebeat does not ship a native Azure Monitor output module.
+# Use Logstash as an intermediary with the logstash-output-azure-loganalytics
+# plugin, OR use the HTTP output below to POST directly to the
+# Azure Monitor Data Collector REST API.
+#
+# Option A: HTTP output directly to Azure Monitor Data Collector API
+# -----------------------------------------------------------------
+output.http:
+  enabled: true
+
+  # Replace with your Workspace ID (terraform output workspace_customer_id)
+  # and construct the URI as shown below.
+  url: "https://WORKSPACE_ID.ods.opinsights.azure.com/api/logs?api-version=2016-04-01"
+
+  # The custom log table name (no _CL suffix — Azure appends it).
+  headers:
+    Log-Type: "soc_lab"
+    # Authorization header is computed via HMAC-SHA256 — see data_connector/README.md
+    # for the signing logic. In production, use Logstash or an Azure Function
+    # to handle signing automatically.
+    x-ms-date: ""   # Set dynamically by your signing script/middleware
+
+  method: POST
+  codec.json:
+    pretty: false
+
+# -----------------------------------------------------------------
+# Option B: Logstash intermediary (recommended for production)
+# -----------------------------------------------------------------
+# Replace the output.http block above with:
+#
+# output.logstash:
+#   hosts: ["logstash:5044"]
+#
+# Then configure Logstash with the logstash-output-azure-loganalytics plugin:
+#
+# output {
+#   azure_loganalytics {
+#     workspace_id  => "WORKSPACE_ID"
+#     workspace_key => "PRIMARY_SHARED_KEY"
+#     custom_log_table_name => "soc_lab"
+#   }
+# }
+# -----------------------------------------------------------------
+
+# -----------------------------------------------------------------
+# Field Mapping Notes: ECS → CommonSecurityLog / Log Analytics
+# -----------------------------------------------------------------
+# Azure Monitor stores data with _s (string), _d (double), _t (datetime)
+# suffixes appended automatically. The following ECS fields used in the
+# SOC Lab analytics rules map to these Log Analytics column names:
+#
+#   ECS Field                 → Log Analytics Column
+#   ──────────────────────────────────────────────────
+#   event.category            → event_category_s
+#   event.action              → event_action_s
+#   event.outcome             → event_outcome_s
+#   source.ip                 → source_ip_s
+#   destination.ip            → destination_ip_s
+#   destination.port          → destination_port_d
+#   network.transport         → network_transport_s
+#   user.name                 → user_name_s
+#   host.name                 → host_name_s
+#   authentication.service    → authentication_service_s
+#   process.name              → process_name_s
+#   process.parent.name       → process_parent_name_s
+#   process.command_line      → process_command_line_s
+#   process.integrity_level   → process_integrity_level_s
+#   labels.simulation         → labels_simulation_s
+#   @timestamp                → TimeGenerated (mapped automatically)
+# -----------------------------------------------------------------
+
+# -----------------------------------------------------------------
+# Logging
+# -----------------------------------------------------------------
+logging.level: info
+logging.to_files: true
+logging.files:
+  path: /var/log/filebeat
+  name: filebeat-azure
+  keepfiles: 7
