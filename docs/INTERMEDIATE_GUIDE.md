@@ -173,13 +173,15 @@ The existing simulation scripts don't cover encoded PowerShell. Add a test event
 source scripts/utils.sh
 
 # Simulate an encoded PowerShell process event
-make_process_event \
+# Signature: make_process_event <parent> <child> <cmdline> <username> <hostname>
+event=$(make_process_event \
+  "wscript.exe" \
   "powershell.exe" \
   "powershell.exe -enc JABjAGwAaQBlAG4AdAAgAD0AIABOAGUAdwAtAE8AYgBqAGUAYwB0" \
-  "wscript.exe" \
-  "Medium" \
   "attacker_user" \
-  "WORKSTATION-04"
+  "WORKSTATION-04")
+
+write_event "$event"
 ```
 
 Re-run the query. Verify the event appears and the `suspicious_parents` column correctly flags it.
