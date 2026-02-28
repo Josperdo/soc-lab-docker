@@ -202,107 +202,24 @@ The features described here represent the direction of development and community
 
 **Description:** Alignment of detections with security controls frameworks.
 
-**Planned mappings:**
+**Delivered (`docs/COMPLIANCE_MAPPING.md`):**
 
-- CIS Controls (v8)
-- NIST Cybersecurity Framework
-- PCI-DSS requirements
-- MITRE ATT&CK (enhance current)
-- ISO 27001
+- CIS Controls v8 — detection-level and platform-level mapping
+- NIST Cybersecurity Framework 2.0 — per-detection subcategory mapping
+- MITRE ATT&CK — full technique coverage table
 
 **Why it matters:** Framework-aligned security thinking, control implementation learning, audit readiness
 
 ---
 
-## Community Initiatives
-
-### Growth & Adoption
-
-- **GitHub presence:** Achieving 1000+ stars, 50+ forks
-- **Community contributions:** Accepting 10+ contributor PRs
-- **Awesome lists:** Featured on security trending projects
-- **Social visibility:** Blog posts, security conference talks, podcast mentions
-
-### Educational Partnerships
-
-- University curriculum integration
-- Security certification preparation (CompTIA Security+, CEH, GCIH)
-- Bootcamp and training program partnerships
-- Conference workshop opportunities
-
-### Integration Ecosystem
-
-- **SIEM integrations:** Splunk, Elastic, Datadog, Sumologic
-- **Automation platforms:** Drata, Wazuh, Snort3
-- **Threat intelligence:** Abuse.ch, Shodan, internal TI feeds
-- **Chat integrations:** Slack, Teams, Discord community channels
-
----
-
-## Future Vision (Long-term)
-
-### 2-3 Year Horizon
-
-- **Enterprise SaaS offering:** Managed cloud instances for organizations
-- **Certification program:** SOC Lab Docker mastery certification
-- **Content marketplace:** Community-authored scenario packs and detection libraries
-- **API-first architecture:** Complete REST API for tools integration
-- **Mobile dashboards:** iOS/Android companion apps for on-the-go monitoring
-- **AI/ML capabilities:** ML-powered anomaly detection and root cause analysis
-
-### Why it matters:
-
-These long-term capabilities would transform SOC Lab Docker from an educational tool into a comprehensive detection engineering platform, while maintaining the open-source, community-driven core.
-
----
-
-## Contributing to the Roadmap
-
-**Have a feature request?**
-
-- Check [GitHub Issues](https://github.com/yourusername/soc-lab-docker/issues) for open discussions
-- Open a new issue with the `feature-request` label
-- Discuss implementation ideas with the community
-
-**Want to contribute code?**
-
-- Review [CONTRIBUTING.md](../CONTRIBUTING.md)
-- Check for issues labeled `help-wanted` or `good-first-issue`
-- Submit a pull request with your implementation
-
-**Have a detection or scenario to share?**
-
-- Create a pull request adding to `detections/` or `scripts/`
-- Include documentation and test cases
-- Reference relevant MITRE ATT&CK techniques
-
----
-
 ## Roadmap Priorities
 
-The team prioritizes features based on:
+Features are prioritized based on:
 
-1. **Community demand** – Feature requests and votes from users
-2. **Educational value** – How much learning the feature enables
-3. **Implementation complexity** – Effort required vs. impact
-4. **Ecosystem alignment** – Integration with industry tools and standards
-5. **Maintainability** – Long-term support and documentation burden
-
----
-
-## Feedback & Discussion
-
-**Questions about the roadmap?**
-
-- Open a GitHub discussion
-- Engage on the project's Discord (if applicable)
-- Email the maintainers (if applicable)
-
-**Major feature ideas?**
-
-- Start a discussion first before implementing
-- Get feedback from the community and core team
-- Plan implementation together
+1. **Educational value** – How much learning the feature enables
+2. **Implementation complexity** – Effort required vs. impact
+3. **Ecosystem alignment** – Integration with industry tools and standards
+4. **Maintainability** – Long-term support and documentation burden
 
 ---
 

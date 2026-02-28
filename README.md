@@ -2,13 +2,13 @@
 
 [![CI](https://github.com/Josperdo/soc-lab-docker/actions/workflows/ci.yml/badge.svg)](https://github.com/Josperdo/soc-lab-docker/actions/workflows/ci.yml)
 
-**A forkable, Docker-based detection engineering lab for learning blue team skills**
+**A Docker-based detection engineering lab for learning blue team skills**
 
 ---
 
 ## Overview
 
-**SOC Lab Docker** is an open-source security operations center (SOC) lab environment designed for defenders, detection engineers, and security analysts to learn and practice blue team tradecraft in a controlled, reproducible, and fork-friendly setting.
+**SOC Lab Docker** is an open-source security operations center (SOC) lab environment designed for defenders, detection engineers, and security analysts to learn and practice blue team tradecraft in a controlled, reproducible setting.
 
 This project provides:
 
@@ -274,18 +274,6 @@ See [docs/roadmap.md](docs/roadmap.md) for the full capabilities roadmap.
 
 ---
 
-## Contributing
-
-Contributions are welcome! Whether you're adding detection rules, attack simulations, dashboard examples, or improving docs:
-
-1. Fork the repository
-2. Create a feature branch: `git checkout -b feature/your-detection`
-3. Commit with clear messages: `git commit -m "Add brute-force detection for Windows"`
-4. Open a pull request with a description and test results
-5. Adhere to the [CONTRIBUTING.md](CONTRIBUTING.md) guidelines
-
----
-
 ## License
 
 This project is licensed under the [MIT License](LICENSE). Feel free to fork, modify, and use for educational purposes.
@@ -300,13 +288,21 @@ This project is licensed under the [MIT License](LICENSE). Feel free to fork, mo
 
 ---
 
-## Support & Learning Resources
+## Learning Resources
 
-- [Full Documentation](docs/)
+| Guide | Level | Description |
+|---|---|---|
+| [Beginner Guide](docs/BEGINNER_GUIDE.md) | Beginner | End-to-end walkthrough: simulate an attack, find events, write your first detection query |
+| [Intermediate Guide](docs/INTERMEDIATE_GUIDE.md) | Intermediate | Build a custom detection from scratch using the full detection engineering methodology |
+| [Sentinel Integration](docs/SENTINEL_INTEGRATION.md) | Advanced | Deploy all lab detections to Azure Sentinel via Terraform; add SOAR playbooks |
+| [Attack Scenarios](docs/ATTACK_SCENARIOS.md) | Reference | MITRE ATT&CK-mapped event chains for each simulation script |
+| [Alerting Guide](docs/ALERTING.md) | Reference | Alert rule format, notification backends, and response playbooks |
+| [Compliance Mapping](docs/COMPLIANCE_MAPPING.md) | Reference | CIS Controls v8 and NIST CSF 2.0 mapping for all lab detections |
+
+**Other docs:**
 - [Setup & Deployment Guide](docs/SETUP.md)
 - [Architecture Deep Dive](docs/ARCHITECTURE.md)
 - [Roadmap & Milestones](docs/roadmap.md)
-- [Detection Engineering Learning Path](docs/LEARNING_PATH.md)
 
 For issues, questions, or feature requests, please open a GitHub issue.
 
