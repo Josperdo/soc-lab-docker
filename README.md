@@ -110,7 +110,7 @@ Attack Simulation Scripts ──► Event Generator ──► Logs ──► Det
 1. **Clone the repository**
 
    ```bash
-   git clone https://github.com/yourusername/soc-lab-docker.git
+   git clone https://github.com/Josperdo/soc-lab-docker.git
    cd soc-lab-docker
    ```
 

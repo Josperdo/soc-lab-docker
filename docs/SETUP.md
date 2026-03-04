@@ -55,7 +55,7 @@ git --version
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/yourusername/soc-lab-docker.git
+git clone https://github.com/Josperdo/soc-lab-docker.git
 cd soc-lab-docker
 ```
 

@@ -13,6 +13,12 @@
 #   T1110.003 – Password Spraying
 #   T1078     – Valid Accounts (final success)
 #
+# DISCLAIMER:
+#   This script generates SYNTHETIC LOG EVENTS ONLY. No real network connections
+#   are made, no actual attacks are performed, and no systems are compromised.
+#   For authorized lab and educational use only. Do not run against systems you
+#   do not own or have explicit written permission to test.
+#
 # Usage:
 #   bash scripts/brute_force_simulation.sh [options]
 #

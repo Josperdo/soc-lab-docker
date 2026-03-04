@@ -20,6 +20,12 @@
 #   T1543.003 – Create or Modify System Process: Windows Service
 #   T1547.001 – Boot or Logon Autostart Execution: Startup Folder (shared technique)
 #
+# DISCLAIMER:
+#   This script generates SYNTHETIC LOG EVENTS ONLY. No real network connections
+#   are made, no actual attacks are performed, and no systems are compromised.
+#   For authorized lab and educational use only. Do not run against systems you
+#   do not own or have explicit written permission to test.
+#
 # Usage:
 #   bash scripts/persistence_simulation.sh [options]
 #

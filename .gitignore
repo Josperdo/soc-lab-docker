@@ -273,6 +273,9 @@ _TODO.md
 .dev/
 INTERNAL_*.md
 .claude/
+Claude.md
+Lessons.md
+tasks/lessons.md
 # ============================================================================
 # Temporary Non-Production Data
 # ============================================================================

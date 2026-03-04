@@ -21,6 +21,12 @@
 #   T1048.003 – Exfiltration Over Alternative Protocol: Unencrypted/Obfuscated Non-C2 Protocol
 #   T1070.004 – Indicator Removal: File Deletion
 #
+# DISCLAIMER:
+#   This script generates SYNTHETIC LOG EVENTS ONLY. No real network connections
+#   are made, no actual attacks are performed, and no systems are compromised.
+#   For authorized lab and educational use only. Do not run against systems you
+#   do not own or have explicit written permission to test.
+#
 # Usage:
 #   bash scripts/exfiltration_simulation.sh [options]
 #

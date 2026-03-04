@@ -21,6 +21,12 @@
 #   T1059.003 – Windows Command Shell
 #   T1071.001 – Application Layer Protocol: Web Protocols (C2)
 #
+# DISCLAIMER:
+#   This script generates SYNTHETIC LOG EVENTS ONLY. No real network connections
+#   are made, no actual attacks are performed, and no systems are compromised.
+#   For authorized lab and educational use only. Do not run against systems you
+#   do not own or have explicit written permission to test.
+#
 # Usage:
 #   bash scripts/lateral_movement_simulation.sh [options]
 #
