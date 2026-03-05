@@ -8,7 +8,7 @@
 
 ## Overview
 
-**SOC Lab Docker** is an open-source security operations center (SOC) lab environment designed for defenders, detection engineers, and security analysts to learn and practice blue team tradecraft in a controlled, reproducible setting.
+Open-source security operations center (SOC) lab environment designed for defenders, detection engineers, and security analysts to learn and practice blue team tradecraft in a controlled, reproducible setting.
 
 This project provides:
 
