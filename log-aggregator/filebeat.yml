@@ -12,17 +12,20 @@
 # Input: Monitor log files written by the generator
 # ----------------------------------------------------------------------------
 filebeat.inputs:
-  - type: log
+  - type: filestream
+    id: soc-lab-json-logs
     enabled: true
     paths:
       - /var/log/soc-lab/*.json
     # Parse each line as JSON and promote fields to the root document
-    json.keys_under_root: true
-    json.overwrite_keys: true
-    json.add_error_key: true
+    parsers:
+      - ndjson:
+          keys_under_root: true
+          overwrite_keys: true
+          add_error_key: true
     # Track file position to avoid re-reading on restart
-    scan_frequency: 5s
-    close_inactive: 5m
+    prospector.scanner.check_interval: 5s
+    close.on_state_change.inactive: 5m
     # Tag all events from this input
     tags: ["soc-lab", "synthetic"]
 
@@ -66,7 +69,12 @@ setup.template.settings:
 # ----------------------------------------------------------------------------
 # ILM (Index Lifecycle Management) – 7-day retention
 # ----------------------------------------------------------------------------
-setup.ilm.enabled: true
+# NOTE: disabled under Filebeat 9.x. Classic alias-based rollover now
+# provisions a literal data stream named after rollover_alias, which does
+# not match the "soc-lab-*" index pattern every detection query and
+# dashboard in this repo relies on. Re-enabling needs a matching migration
+# of those index patterns to the data-stream name — tracked as a follow-up.
+setup.ilm.enabled: false
 setup.ilm.rollover_alias: "soc-lab"
 setup.ilm.pattern: "{now/d}-000001"
 setup.ilm.policy_name: "soc-lab-7day"

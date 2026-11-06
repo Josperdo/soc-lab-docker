@@ -151,6 +151,12 @@ ELASTICSEARCH_PORT=9200
 ELASTICSEARCH_HEAP_SIZE=1g      # Increase to 2g for large datasets or heavy ES|QL queries
 
 # How long to keep data
+# ⚠️  KNOWN ISSUE (Elastic 9.x migration, fix in progress): this value is
+# currently NOT enforced. ILM-based retention was disabled because classic
+# alias rollover now provisions a literal data stream that breaks the
+# soc-lab-* index pattern used by every detection query and dashboard.
+# Data will accumulate indefinitely until this is fixed. See filebeat.yml
+# setup.ilm.enabled for details.
 DATA_RETENTION_DAYS=7           # Change to 14, 30, etc.
 
 # ============================================================================
@@ -194,6 +200,10 @@ docker-compose restart
 ```
 
 #### Example 2: Change Data Retention
+
+> ⚠️ **Fix in progress:** `DATA_RETENTION_DAYS` is currently a no-op under
+> Elastic 9.x — see the note above. Changing this value will not have any
+> effect until ILM retention is restored. Tracked as a follow-up.
 
 To keep data longer for historical analysis:
 
