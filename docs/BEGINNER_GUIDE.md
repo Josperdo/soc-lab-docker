@@ -57,7 +57,7 @@ This generates 50 failed SSH authentication events from a simulated attacker IP,
 Before writing a detection, explore the raw data to understand what you're working with.
 
 1. Open Kibana → **Discover**
-2. Select the `soc-lab-*` index pattern
+2. Select the `soc-lab*` index pattern
 3. Set the time range to **Last 15 minutes**
 4. In the search bar, enter:
 
@@ -103,7 +103,7 @@ Open Kibana → **Discover** → toggle to **ES|QL** mode (top-left dropdown).
 Run this query:
 
 ```esql
-FROM soc-lab-*
+FROM soc-lab*
 | WHERE event.category == "authentication"
   AND event.outcome == "failure"
 | EVAL time_bucket = DATE_TRUNC(5 minutes, @timestamp)
@@ -122,7 +122,7 @@ You should see one row: the simulated attacker IP with 50 failures.
 ### Breaking it down line by line
 
 ```esql
-FROM soc-lab-*
+FROM soc-lab*
 ```
 Query all SOC lab indices.
 
@@ -155,7 +155,7 @@ Apply the threshold. Below 10, it could be a user who forgot their password. Abo
 Now check whether the attacker succeeded. Run this query to find authentications where failures were followed by a success from the same IP:
 
 ```esql
-FROM soc-lab-*
+FROM soc-lab*
 | WHERE event.category == "authentication"
   AND source.ip == "REPLACE_WITH_ATTACKER_IP"
 | STATS

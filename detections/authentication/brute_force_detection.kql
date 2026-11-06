@@ -40,7 +40,7 @@
 // QUERY 1: Kibana KQL – Simple Failure Filter
 // Use in: Kibana → Discover or Lens
 //
-// This is a base filter. Apply to the soc-lab-* index pattern and add
+// This is a base filter. Apply to the soc-lab* index pattern and add
 // a time range. Then use aggregations in Lens to count by source.ip.
 // ===========================================================================
 
@@ -136,7 +136,7 @@ failures
 
 // --- 4a: DATE_TRUNC (Kibana 8.11+ compatible) ----------------------------
 /*
-FROM soc-lab-*
+FROM soc-lab*
 | WHERE event.category == "authentication"
   AND event.outcome == "failure"
 | EVAL time_bucket = DATE_TRUNC(5 minutes, @timestamp)
@@ -152,7 +152,7 @@ FROM soc-lab-*
 
 // --- 4b: Simple aggregation – no time bucket (works in all 8.x versions) -
 /*
-FROM soc-lab-*
+FROM soc-lab*
 | WHERE event.category == "authentication"
   AND event.outcome == "failure"
 | STATS
@@ -168,7 +168,7 @@ FROM soc-lab-*
 // --- 4c: BUCKET with 4 args (8.11 compatible, use for fixed time ranges) -
 // Replace the from/to values with your actual time range strings.
 /*
-FROM soc-lab-*
+FROM soc-lab*
 | WHERE event.category == "authentication"
   AND event.outcome == "failure"
 | STATS

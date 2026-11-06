@@ -124,7 +124,7 @@ description: What this detects  # Human-readable description
 
 # Elasticsearch query
 query:
-  index: "soc-lab-*"
+  index: "soc-lab*"
   filter:                       # All conditions must match (AND)
     - term:
         field.name: value
@@ -227,7 +227,7 @@ Example:
 ```bash
 eval_new_technique() {
     local count
-    count=$(es_count "soc-lab-*" \
+    count=$(es_count "soc-lab*" \
         '{"bool":{"must":[{"term":{"event.category":"process"}},{"term":{"process.name":"suspicious.exe"}}]}}')
 
     log "  new_technique: ${count} events in last ${LOOKBACK}s"
@@ -290,7 +290,7 @@ Look for:
 #### SPL Investigation (Splunk)
 
 ```spl
-index=soc-lab-* event.category=authentication source.ip="<ATTACKER_IP>"
+index=soc-lab* event.category=authentication source.ip="<ATTACKER_IP>"
 | table _time, user.name, event.outcome, host.name, authentication.service
 | sort _time
 ```

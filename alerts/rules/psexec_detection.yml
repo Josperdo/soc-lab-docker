@@ -7,7 +7,7 @@ enabled: true
 description: PsExec service binary detected — lateral movement via SMB/admin share
 
 query:
-  index: "soc-lab-*"
+  index: "soc-lab*"
   filter:
     - term:
         event.category: process

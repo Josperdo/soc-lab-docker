@@ -233,7 +233,7 @@ notify() {
 
 eval_brute_force() {
     local count
-    count=$(es_count "soc-lab-*" \
+    count=$(es_count "soc-lab*" \
         '{"bool":{"must":[{"term":{"event.category":"authentication"}},{"term":{"event.outcome":"failure"}}]}}')
 
     log "  brute_force_authentication: ${count} failures in last ${LOOKBACK}s"
@@ -250,7 +250,7 @@ eval_brute_force() {
 
 eval_psexec() {
     local count
-    count=$(es_count "soc-lab-*" \
+    count=$(es_count "soc-lab*" \
         '{"bool":{"must":[{"term":{"event.category":"process"}}],"should":[{"term":{"process.name":"PSEXESVC.exe"}},{"term":{"process.parent.name":"PSEXESVC.exe"}}],"minimum_should_match":1}}')
 
     log "  psexec_lateral_movement: ${count} events in last ${LOOKBACK}s"
@@ -267,7 +267,7 @@ eval_psexec() {
 
 eval_large_transfer() {
     local count
-    count=$(es_count "soc-lab-*" \
+    count=$(es_count "soc-lab*" \
         '{"bool":{"must":[{"term":{"event.category":"network"}},{"term":{"network.transport":"tcp"}},{"term":{"event.outcome":"success"}}],"must_not":[{"terms":{"destination.port":[80,443,53,22,25,143,465,587,993,995]}}]}}')
 
     log "  large_data_transfer: ${count} non-standard port connections in last ${LOOKBACK}s"
@@ -284,7 +284,7 @@ eval_large_transfer() {
 
 eval_wmi_execution() {
     local count
-    count=$(es_count "soc-lab-*" \
+    count=$(es_count "soc-lab*" \
         '{"bool":{"must":[{"term":{"event.category":"process"}},{"term":{"process.parent.name":"WmiPrvSE.exe"}},{"terms":{"process.name":["cmd.exe","powershell.exe"]}}]}}')
 
     log "  wmi_remote_execution: ${count} WmiPrvSE.exe shell spawn events in last ${LOOKBACK}s"
@@ -301,7 +301,7 @@ eval_wmi_execution() {
 
 eval_scheduled_task() {
     local count
-    count=$(es_count "soc-lab-*" \
+    count=$(es_count "soc-lab*" \
         '{"bool":{"must":[{"term":{"event.category":"process"}},{"term":{"process.name":"schtasks.exe"}}],"should":[{"match":{"process.command_line":"/create"}},{"match":{"process.command_line":"powershell"}},{"match":{"process.command_line":"-EncodedCommand"}}],"minimum_should_match":1}}')
 
     log "  scheduled_task_persistence: ${count} suspicious schtasks.exe events in last ${LOOKBACK}s"

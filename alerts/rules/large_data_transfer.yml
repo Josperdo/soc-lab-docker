@@ -7,7 +7,7 @@ enabled: true
 description: High-volume outbound transfer on a non-standard port — potential exfiltration
 
 query:
-  index: "soc-lab-*"
+  index: "soc-lab*"
   filter:
     - term:
         event.category: network

@@ -47,7 +47,7 @@ Some enterprise software and deployment scripts use `-EncodedCommand` for legiti
 
 ## Step 2: Explore the Data
 
-Open Kibana → Discover → `soc-lab-*` index → Last 24 hours.
+Open Kibana → Discover → `soc-lab*` index → Last 24 hours.
 
 Run a baseline query to see all PowerShell process events:
 
@@ -96,7 +96,7 @@ Start broad, then narrow.
 **Iteration 1 — Capture everything (too broad):**
 
 ```esql
-FROM soc-lab-*
+FROM soc-lab*
 | WHERE event.category == "process"
   AND process.name == "powershell.exe"
 | LIMIT 100
@@ -107,7 +107,7 @@ Run it. Note the volume. This is your denominator — how many PowerShell events
 **Iteration 2 — Apply the encoding filter:**
 
 ```esql
-FROM soc-lab-*
+FROM soc-lab*
 | WHERE event.category == "process"
   AND process.name == "powershell.exe"
   AND process.command_line LIKE "*-enc*"
@@ -119,7 +119,7 @@ This catches `-enc`, `-encoded`, `-encodedcommand`. Check the results — are th
 **Iteration 3 — Add parent process context:**
 
 ```esql
-FROM soc-lab-*
+FROM soc-lab*
 | WHERE event.category == "process"
   AND process.name == "powershell.exe"
   AND process.command_line LIKE "*-enc*"
@@ -141,7 +141,7 @@ Parent process context is critical for triage. PowerShell spawned by:
 **Iteration 4 — The production query:**
 
 ```esql
-FROM soc-lab-*
+FROM soc-lab*
 | WHERE event.category == "process"
   AND process.name == "powershell.exe"
   AND process.command_line LIKE "*-enc*"
@@ -232,7 +232,7 @@ Every detection should be self-documenting. Create a new file at `detections/lat
 // Last updated: 2026-02-27
 // ============================================================
 
-FROM soc-lab-*
+FROM soc-lab*
 | WHERE event.category == "process"
   AND process.name == "powershell.exe"
   AND process.command_line LIKE "*-enc*"

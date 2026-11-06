@@ -85,7 +85,7 @@ sequence by host.name with maxspan=5m
 // Run over a wide time window to build a baseline.
 // Compatible with Kibana 8.11+.
 
-FROM soc-lab-*
+FROM soc-lab*
 | WHERE event.category == "network"
     AND event.outcome == "success"
     AND network.transport == "tcp"

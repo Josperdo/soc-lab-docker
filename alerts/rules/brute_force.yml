@@ -11,7 +11,7 @@ description: Rapid authentication failures indicating a brute force or password 
 
 # Elasticsearch query — run against the lab index
 query:
-  index: "soc-lab-*"
+  index: "soc-lab*"
   filter:
     - term:
         event.category: authentication

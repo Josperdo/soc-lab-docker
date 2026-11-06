@@ -76,7 +76,7 @@ sequence by host.name with maxspan=30s
 // a quiet period to establish what's normal before alerting.
 // Compatible with Kibana 8.11+.
 
-FROM soc-lab-*
+FROM soc-lab*
 | WHERE event.category == "process"
     AND process.integrity_level == "System"
 | STATS occurrence_count = COUNT(*),

@@ -75,7 +75,7 @@ sequence by host.name with maxspan=30s
 // per user and host to identify the most active persistence actors.
 // Compatible with Kibana 8.11+.
 
-FROM soc-lab-*
+FROM soc-lab*
 | WHERE event.category == "process"
     AND (process.name == "schtasks.exe"
       OR process.name == "at.exe"

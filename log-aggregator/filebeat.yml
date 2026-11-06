@@ -50,8 +50,9 @@ processors:
 # ----------------------------------------------------------------------------
 output.elasticsearch:
   hosts: ["http://elasticsearch:9200"]
-  # Index pattern: soc-lab-YYYY.MM.DD
-  index: "soc-lab-%{+yyyy.MM.dd}"
+  # Data stream name. Time-based segmentation happens via the backing
+  # indices (.ds-soc-lab-<date>-<generation>), not a date-formatted name.
+  index: "soc-lab"
   # Bulk insert settings for performance
   bulk_max_size: 2048
   worker: 1
@@ -59,8 +60,11 @@ output.elasticsearch:
 # ----------------------------------------------------------------------------
 # Index template setup
 # ----------------------------------------------------------------------------
+# Pattern must match the data stream name itself ("soc-lab"), not a dated
+# index pattern — Filebeat 9.x provisions this as a data stream, and the
+# template has to cover the literal stream name for ILM setup to succeed.
 setup.template.name: "soc-lab"
-setup.template.pattern: "soc-lab-*"
+setup.template.pattern: "soc-lab"
 setup.template.overwrite: false
 setup.template.settings:
   index.number_of_shards: 1
@@ -69,12 +73,7 @@ setup.template.settings:
 # ----------------------------------------------------------------------------
 # ILM (Index Lifecycle Management) – 7-day retention
 # ----------------------------------------------------------------------------
-# NOTE: disabled under Filebeat 9.x. Classic alias-based rollover now
-# provisions a literal data stream named after rollover_alias, which does
-# not match the "soc-lab-*" index pattern every detection query and
-# dashboard in this repo relies on. Re-enabling needs a matching migration
-# of those index patterns to the data-stream name — tracked as a follow-up.
-setup.ilm.enabled: false
+setup.ilm.enabled: true
 setup.ilm.rollover_alias: "soc-lab"
 setup.ilm.pattern: "{now/d}-000001"
 setup.ilm.policy_name: "soc-lab-7day"

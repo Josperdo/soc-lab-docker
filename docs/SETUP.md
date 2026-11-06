@@ -112,7 +112,7 @@ Before browsing data in Kibana you need to create a data view:
 
 1. Open `http://localhost:5601/app/management/kibana/dataViews`
 2. Click **Create data view**
-3. Set **Index pattern** to `soc-lab-*` and **Timestamp field** to `@timestamp`
+3. Set **Index pattern** to `soc-lab*` and **Timestamp field** to `@timestamp`
 4. Click **Save data view to Kibana**
 
 Then go to **Analytics → Discover** to explore live events.
@@ -124,7 +124,7 @@ Then go to **Analytics → Discover** to explore live events.
 docker-compose logs --tail=10 log-generator
 
 # Check events in Elasticsearch
-curl -X GET "localhost:9200/soc-lab-*/_count"
+curl -X GET "localhost:9200/soc-lab*/_count"
 
 # Expected output:
 # {"count":1234,"_shards":{"total":1,"successful":1,"skipped":0,"failed":0}}
@@ -151,12 +151,6 @@ ELASTICSEARCH_PORT=9200
 ELASTICSEARCH_HEAP_SIZE=1g      # Increase to 2g for large datasets or heavy ES|QL queries
 
 # How long to keep data
-# ⚠️  KNOWN ISSUE (Elastic 9.x migration, fix in progress): this value is
-# currently NOT enforced. ILM-based retention was disabled because classic
-# alias rollover now provisions a literal data stream that breaks the
-# soc-lab-* index pattern used by every detection query and dashboard.
-# Data will accumulate indefinitely until this is fixed. See filebeat.yml
-# setup.ilm.enabled for details.
 DATA_RETENTION_DAYS=7           # Change to 14, 30, etc.
 
 # ============================================================================
@@ -200,10 +194,6 @@ docker-compose restart
 ```
 
 #### Example 2: Change Data Retention
-
-> ⚠️ **Fix in progress:** `DATA_RETENTION_DAYS` is currently a no-op under
-> Elastic 9.x — see the note above. Changing this value will not have any
-> effect until ILM retention is restored. Tracked as a follow-up.
 
 To keep data longer for historical analysis:
 
@@ -265,10 +255,10 @@ tail -f data/logs/soc-lab-events.json
 
 ```bash
 # Count total events
-curl -s "http://localhost:9200/soc-lab-*/_count"
+curl -s "http://localhost:9200/soc-lab*/_count"
 
 # Sample a recent event
-curl -s "http://localhost:9200/soc-lab-*/_search?size=1"
+curl -s "http://localhost:9200/soc-lab*/_search?size=1"
 ```
 
 ### Common Issues & Solutions
@@ -382,7 +372,7 @@ docker-compose logs --tail=5 log-generator
 
 #### Issue: Kibana Data View "must match one or more data streams or indices"
 
-**Symptom:** When creating a `soc-lab-*` data view in Kibana, you see an error saying the pattern doesn't match anything.
+**Symptom:** When creating a `soc-lab*` data view in Kibana, you see an error saying the pattern doesn't match anything.
 
 **Cause:** No data has arrived in Elasticsearch yet — indices don't exist until the first events are indexed.
 
@@ -392,7 +382,7 @@ docker-compose logs --tail=5 log-generator
 # Verify events are flowing
 curl http://localhost:9200/_cat/indices?v
 
-# If no soc-lab-* indices, check the generator and filebeat logs
+# If no soc-lab* indices, check the generator and filebeat logs
 docker-compose logs --tail=20 log-generator
 docker-compose logs --tail=20 filebeat
 ```
@@ -407,7 +397,7 @@ Wait 30–60 seconds after the stack comes up for the first events to be indexed
 
 ```
 curl http://localhost:9200/_cat/indices?v
-(Empty output or no soc-lab-* indices)
+(Empty output or no soc-lab* indices)
 ```
 
 **Solution:**

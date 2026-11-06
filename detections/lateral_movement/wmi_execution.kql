@@ -63,7 +63,7 @@ sequence by host.name with maxspan=1m
 // Counts shell processes spawned by WmiPrvSE.exe per host.
 // Compatible with Kibana 8.11+.
 
-FROM soc-lab-*
+FROM soc-lab*
 | WHERE event.category == "process"
     AND process.parent.name == "WmiPrvSE.exe"
 | STATS spawn_count  = COUNT(*),

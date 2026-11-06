@@ -53,7 +53,7 @@
 | Direct indicator – PSEXESVC.exe should rarely appear in a clean environment
 | ===========================================================================
 
-index="soc-lab-*"
+index="soc-lab*"
     event.category="process"
     (process.name="PSEXESVC.exe" OR process.parent.name="PSEXESVC.exe")
 | eval severity="high"
@@ -73,7 +73,7 @@ index="soc-lab-*"
 | cmd.exe running as SYSTEM is a high-confidence indicator of remote execution
 | ===========================================================================
 
-index="soc-lab-*"
+index="soc-lab*"
     event.category="process"
     process.name="cmd.exe"
     user.name="SYSTEM"
@@ -89,7 +89,7 @@ index="soc-lab-*"
 | on port 445 – especially non-DC to non-workstation patterns
 | ===========================================================================
 
-index="soc-lab-*"
+index="soc-lab*"
     event.category="network"
     destination.port=445
     network.transport="tcp"
@@ -119,10 +119,10 @@ index="soc-lab-*"
 | ===========================================================================
 
 | base search for auth + SMB correlation
-index="soc-lab-*" event.category="authentication" event.outcome="success"
+index="soc-lab*" event.category="authentication" event.outcome="success"
 | eval auth_src_ip=source.ip, auth_time=_time, auth_user=user.name
 | join type=inner auth_src_ip [
-    search index="soc-lab-*" event.category="network" destination.port=445
+    search index="soc-lab*" event.category="network" destination.port=445
     | eval auth_src_ip=source.ip
     | stats min(_time) AS smb_time BY auth_src_ip, destination.ip
 ]
@@ -138,7 +138,7 @@ index="soc-lab-*" event.category="authentication" event.outcome="success"
 | Catches "net use \\host\ADMIN$" and similar staging commands
 | ===========================================================================
 
-index="soc-lab-*"
+index="soc-lab*"
     event.category="process"
     process.name="net.exe"
     process.command_line="*\\ADMIN$*" OR process.command_line="*\\C$*" OR process.command_line="*\\IPC$*"

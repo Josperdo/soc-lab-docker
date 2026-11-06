@@ -43,7 +43,7 @@
 | QUERY 1: Brute Force Detection – Failure threshold per source IP
 | ===========================================================================
 
-index="soc-lab-*"
+index="soc-lab*"
     event.category="authentication"
     event.outcome="failure"
 | eval window=strftime(_time, "%Y-%m-%d %H:%M")
@@ -75,7 +75,7 @@ index="soc-lab-*"
 | Correlates a success event with prior failures from the same source IP
 | ===========================================================================
 
-index="soc-lab-*" event.category="authentication"
+index="soc-lab*" event.category="authentication"
 | eval auth_key = source.ip + "|" + user.name
 | eval is_failure = if(event.outcome="failure", 1, 0)
 | eval is_success = if(event.outcome="success", 1, 0)
@@ -97,7 +97,7 @@ index="soc-lab-*" event.category="authentication"
 | Detects an attacker trying one password against many accounts
 | ===========================================================================
 
-index="soc-lab-*"
+index="soc-lab*"
     event.category="authentication"
     event.outcome="failure"
 | bin _time span=10m

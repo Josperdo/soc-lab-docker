@@ -83,7 +83,7 @@ sequence by host.name with maxspan=5m
 // the most targeted systems and initiating accounts.
 // Compatible with Kibana 8.11+.
 
-FROM soc-lab-*
+FROM soc-lab*
 | WHERE event.category == "process" AND process.name == "PSEXESVC.exe"
 | STATS event_count    = COUNT(*),
         unique_users   = COUNT_DISTINCT(user.name)
